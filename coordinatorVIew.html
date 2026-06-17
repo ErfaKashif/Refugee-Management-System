@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Coordinator Panel</title>
+
+<link rel="stylesheet" href="donation.css">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+</head>
+
+<body>
+
+<div class="app">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+
+  <div class="brand">
+    <i class="fa-solid fa-hand-holding-heart"></i>
+    <h1>Coordinator</h1>
+  </div>
+
+  <div class="menu">
+
+    <a onclick="loadProfile()" class="active"><i class="fa fa-user"></i> Profile</a>
+    <a onclick="loadShelter()"><i class="fa fa-building"></i> Shelter</a>
+    <a onclick="loadAllRefugees()"><i class="fa fa-users"></i> All Refugees</a>
+    <a onclick="openSearchPanel()"><i class="fa fa-magnifying-glass"></i> Search</a>
+<a onclick="loadCriticalPatients()"><i class="fa fa-heart-pulse"></i> Critical Patients</a>
+<a onclick="loadCamps()"><i class="fa fa-campground"></i> Camps</a>
+<a onclick="loadDoctors()"><i class="fa fa-user-doctor"></i> Doctors</a>
+<a onclick="loadVolunteers()"><i class="fa fa-hands-helping"></i> Volunteers</a>
+<a onclick="loadMedicalRecords()"><i class="fa fa-file-medical"></i> Medical Records</a>
+<a onclick="loadIncidents()"><i class="fa fa-exclamation-triangle"></i> Incidents</a>
+<a onclick="loadAidDistributions()"><i class="fa fa-box"></i> Aid Distributed</a>
+ <a onclick="loadInventory()"><i class="fa fa-warehouse"></i> Inventory</a>
+  <a onclick="openCreateAid()"><i class="fa fa-plus-circle"></i> Create Aid Task</a>
+  <a onclick="assignVolunteerToAid()"><i class="fa fa-user-plus"></i> Assign Volunteer</a>
+<a onclick="openAssignCamp()"><i class="fa fa-tent"></i> Assign Camp</a>
+<a onclick="openDischargeRefugee()"><i class="fa fa-right-from-bracket"></i> Discharge Refugee</a>
+    <a onclick="logout()"><i class="fa fa-right-from-bracket"></i> Logout</a>  
+</div>
+
+</aside>
+
+<!-- MAIN -->
+<main class="content">
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-left">
+    <h3 id="pageTitle">Dashboard</h3>
+  </div>
+
+  <div class="profile">
+    <div class="avatar">C</div>
+    <span id="info">Loading...</span>
+  </div>
+</div>
+
+<!-- SEARCH PANEL -->
+<div class="card" id="searchBox" style="display:none; margin-bottom:15px;">
+
+  <h3>Search Refugees</h3>
+
+  <div class="toolbar">
+
+    <input id="refugeeId" placeholder="Refugee ID">
+    <button class="btn btn-primary" onclick="searchById()">Search by ID</button>
+
+    <input id="nationality" placeholder="Nationality">
+    <button class="btn btn-primary" onclick="searchByNationality()">Search</button>
+
+  </div>
+
+</div>
+
+<!-- STATS -->
+<div class="cards-grid">
+
+  <div class="card">
+    <p class="stat-title">Coordinator ID</p>
+    <p class="stat-value" id="cid">-</p>
+  </div>
+
+  <div class="card">
+    <p class="stat-title">Records Loaded</p>
+    <p class="stat-value" id="count">-</p>
+  </div>
+
+</div>
+
+<!-- TABLE -->
+<div class="table-wrap">
+
+<table>
+
+<thead>
+<tr>
+  <th>ID</th>
+  <th>Name</th>
+  <th>Nationality</th>
+  <th>Gender</th>
+  <th>Status</th>
+  <th>Camp</th>
+</tr>
+</thead>
+
+<tbody id="tableBody">
+<tr><td colspan="6" class="empty-row">Loading...</td></tr>
+</tbody>
+
+</table>
+
+</div>
+
+</main>
+
+</div>
+
+<script>
+
+const API = "http://localhost:3000";
+const coordinatorId = localStorage.getItem("coordinatorId");
+const shelterId = localStorage.getItem("shelterId");
+
+document.getElementById("info").innerText = "Coordinator ID: " + coordinatorId;
+document.getElementById("cid").innerText = coordinatorId;
+
+/* ================= PROFILE ================= */
+async function loadProfile(){
+  const res = await fetch(`${API}/api/coordinators/${coordinatorId}`);
+  const data = await res.json();
+
+  document.getElementById("pageTitle").innerText = "Profile";
+  renderProfile(data);
+}
+
+/* ================= SHELTER ================= */
+
+/* ================= SHELTER ================= */
+
+async function loadShelter() {
+  const res = await fetch(`${API}/api/coordinators/${coordinatorId}/shelter`);
+  const data = await res.json();
+  document.getElementById("pageTitle").innerText = "My Shelter";
+  renderShelter(data);
+}
+
+/* ================= ALL REFUGEES ================= */
+async function loadAllRefugees(){
+  const res = await fetch(`${API}/api/coordinators/${shelterId}/refugees`);
+  const data = await res.json();
+
+  document.getElementById("pageTitle").innerText = "All Refugees";
+  document.querySelector("thead tr").innerHTML = `
+    <th>Refugee ID</th>
+    <th>Full Name</th>
+    <th>Date of Birth</th>
+    <th>Gender</th>
+    <th>Nationality</th>
+    <th>Intake Date</th>
+    <th>Vulnerability</th>
+    <th>Status</th>
+    <th>Family</th>
+    <th>Camp</th>
+  `;
+  renderTable(data);
+}
+
+/* ================= SEARCH PANEL ================= */
+function openSearchPanel(){
+  const box = document.getElementById("searchBox");
+  box.style.display = box.style.display === "none" ? "block" : "none";
+}
+
+/* ================= SEARCH BY ID ================= */
+/*async function searchById(){
+  const rid = document.getElementById("refugeeId").value;
+const res = await fetch(`${API}/api/coordinators/${shelterId}/refugees/${rid}`);
+  const data = await res.json();
+
+  document.getElementById("pageTitle").innerText = "Refugee Details";
+  renderProfile(data);
+}*/
+async function searchById(){
+  const rid = document.getElementById("refugeeId").value;
+  const res = await fetch(`${API}/api/coordinators/${shelterId}/refugees/${rid}`);
+  const data = await res.json();
+
+  document.getElementById("pageTitle").innerText = "Refugee Details";
+  renderRefugeeDetail(data);
+}
+
+/* ================= SEARCH BY NATIONALITY ================= */
+
+async function searchByNationality(){
+  const nat = document.getElementById("nationality").value.trim();
+
+  if (!nat) {
+    alert("Please enter a nationality");
+    return;
+  }
+
+  const res = await fetch(`${API}/api/coordinators/${shelterId}/refugees/nationality/${nat}`);
+  const data = await res.json();
+
+  console.log("Nationality search response:", data);
+
+  document.getElementById("pageTitle").innerText = "By Nationality: " + nat;
+
+  // Reset headers
+  document.querySelector("thead tr").innerHTML = `
+    <th>ID</th>
+    <th>Name</th>
+    <th>Nationality</th>
+    <th>Gender</th>
+    <th>Status</th>
+    <th>Camp</th>
+  `;
+
+  renderTable(data);
+}
+
+/* ================= RENDER TABLE ================= */
+function renderTable(data) {
+  const body = document.getElementById("tableBody");
+  body.innerHTML = "";
+
+  document.getElementById("count").innerText = data.length || 0;
+
+  if (!data || data.length === 0) {
+    body.innerHTML = `<tr><td colspan="10" class="empty-row">No data found</td></tr>`;
+    return;
+  }
+
+  data.forEach(r => {
+    body.innerHTML += `
+      <tr>
+        <td>${r.REFUGEE_ID}</td>
+        <td>${r.NAME}</td>
+        <td>${r.DOB ? new Date(r.DOB).toLocaleDateString() : '-'}</td>
+        <td>${r.GENDER === 'M' ? 'Male' : r.GENDER === 'F' ? 'Female' : r.GENDER}</td>
+        <td>${r.NATIONALITY || '-'}</td>
+        <td>${r.IN_DATE ? new Date(r.IN_DATE).toLocaleDateString() : '-'}</td>
+        <td>${r.VULNERABILITY || 'None'}</td>
+        <td><span class="status ok">${r.STATUS || 'ACTIVE'}</span></td>
+        <td>${r.HAS_FAMILY === 'Y' ? 'Yes' : 'No'}</td>
+        <td>${r.CAMP_NAME || 'Unassigned'}</td>
+      </tr>
+    `;
+  });
+}
+/* ================= RENDER SINGLE ================= */
+function renderSingle(data){
+
+  const body = document.getElementById("tableBody");
+  body.innerHTML = "";
+
+  body.innerHTML = `
+    <tr>
+      <td colspan="6">
+        <pre>${JSON.stringify(data, null, 2)}</pre>
+      </td>
+    </tr>
+  `;
+}
+/*===============Render Profile==============*/
+/* ================= RENDER SHELTER ================= */
+function renderShelter(data) {
+  // Update headers
+  document.querySelector("thead tr").innerHTML = `
+    <th>Shelter ID</th>
+    <th>Shelter Name</th>
+    <th>Capacity</th>
+    <th>Critical Patients</th>
+    <th>Location</th>
+    <th>Coordinates</th>
+  `;
+
+  const body = document.getElementById("tableBody");
+  body.innerHTML = `
+    <tr>
+      <td>${data.SHELTER_ID}</td>
+      <td>${data.SHELTER_NAME}</td>
+      <td>${data.CURR_CAPACITY ?? 0} / ${data.TOTAL_CAPACITY}</td>
+      <td>${data.CRITICAL_PATIENTS ?? 0}</td>
+      <td>${data.CITY ?? '-'}, ${data.DISTRICT ?? '-'}, ${data.STATE ?? '-'}, ${data.COUNTRY ?? '-'}</td>
+      <td>${data.LATITUDE ?? '-'}, ${data.LONGITUDE ?? '-'}</td>
+    </tr>
+  `;
+
+  document.getElementById("count").innerText = 1;
+}
+
+/* ================= RENDER PROFILE ================= */
+function renderProfile(data) {
+  const body = document.getElementById("tableBody");
+
+  // Update table headers
+  document.querySelector("thead tr").innerHTML = `
+    <th>Coordinator ID</th>
+    <th>Name</th>
+    <th>Phone</th>
+    <th>Email</th>
+    <th colspan="2">Shelter</th>
+  `;
+
+  body.innerHTML = `
+    <tr>
+      <td>${data.COORDINATOR_ID}</td>
+      <td>${data.COORDINATOR_NAME}</td>
+      <td>${data.PHONE ?? '-'}</td>
+      <td>${data.EMAIL ?? '-'}</td>
+      <td colspan="2">${localStorage.getItem("shelterName") ?? '-'}</td>
+    </tr>
+  `;
+
+  document.getElementById("count").innerText = 1;
+}
+
+/* ================= RENDER SINGLE REFUGEE ================= */
+function renderRefugeeDetail(data) {
+  const body = document.getElementById("tableBody");
+
+  // Reset headers to refugee columns
+  document.querySelector("thead tr").innerHTML = `
+    <th>ID</th>
+    <th>Name</th>
+    <th>Nationality</th>
+    <th>Gender</th>
+    <th>Status</th>
+    <th>Camp</th>
+  `;
+
+  body.innerHTML = `
+    <tr>
+      <td>${data.REFUGEE_ID}</td>
+      <td>${data.NAME}</td>
+      <td>${data.NATIONALITY}</td>
+      <td>${data.GENDER}</td>
+      <td><span class="status ok">${data.STATUS || 'ACTIVE'}</span></td>
+      <td>${data.CAMP_NAME || '-'}</td>
+    </tr>
+  `;
+
+  document.getElementById("count").innerText = 1;
+}
+/* ================= CRITICAL PATIENTS ================= */
+async function loadCriticalPatients() {
+  const res = await fetch(`${API}/api/coordinators/${shelterId}/refugees/critical`);
+  const data = await res.json();
+
+  document.getElementById("pageTitle").innerText = "Critical Patients";
+
+  document.querySelector("thead tr").innerHTML = `
+    <th>Refugee ID</th>
+    <th>Name</th>
+    <th>Nationality</th>
+    <th>Diagnosis</th>
+    <th>Treatment</th>
+    <th>Record Date</th>
+    <th>Doctor</th>
+    <th>Camp</th>
+  `;
+
+  const body = document.getElementById("tableBody");
+
+  if (!data || data.length === 0) {
+    body.innerHTML = `<tr><td colspan="8" class="empty-row">No critical patients found</td></tr>`;
+    document.getElementById("count").innerText = 0;
+    return;
+  }
+
+  body.innerHTML = data.map(p => `
+    <tr>
+      <td>${p.REFUGEE_ID ?? '-'}</td>
+      <td>${p.NAME ?? '-'}</td>
+      <td>${p.NATIONALITY ?? '-'}</td>
+      <td class="wrap">${p.DIAGNOSIS ?? '-'}</td>
+      <td class="wrap">${p.TREATMENT ?? '-'}</td>
+      <td>${p.RECORD_DATE ? new Date(p.RECORD_DATE).toLocaleDateString() : '-'}</td>
+      <td>${p.DOCTOR_NAME ?? '-'}</td>
+      <td>${p.CAMP_NAME ?? '-'}</td>
+    </tr>
+  `).join('');
+
+  document.getElementById("count").innerText = data.length;
+}
+
+/* ================= CAMPS ================= */
+async function loadCamps() {
+  const res = await fetch(`${API}/api/coordinators/${shelterId}/camps`);
+  const data = await res.json();
+
+  document.getElementById("pageTitle").innerText = "Camps";
+
+  document.querySelector("thead tr").innerHTML = `
+    <th>Camp ID</th>
+    <th>Camp Name</th>
+    <th>Block</th>
+    <th>Current Capacity</th>
+    <th>Total Capacity</th>
+  `;
+
+  const body = document.getElementById("tableBody");
+
+  if (!data || data.length === 0) {
+    body.innerHTML = `<tr><td colspan="5" class="empty-row">No camps found</td></tr>`;
+    document.getElementById("count").innerText = 0;
+    return;
+  }
+
+  body.innerHTML = data.map(c => `
+    <tr>
+      <td>${c.CAMP_ID ?? '-'}</td>
+      <td>${c.CAMP_NAME ?? '-'}</td>
+      <td>${c.BLOCK ?? '-'}</td>
+      <td>${c.CURR_CAPACITY ?? 0}</td>
+      <td>${c.TOTAL_CAPACITY ?? '-'}</td>
+    </tr>
+  `).join('');
+
+  document.getElementById("count").innerText = data.length;
+}
+
+/* ================= DOCTORS ================= */
+async function loadDoctors() {
+  const res = await fetch(`${API}/api/coordinators/${shelterId}/doctors`);
+  const data = await res.json();
+
+  document.getElementById("pageTitle").innerText = "Doctors";
+
+  document.querySelector("thead tr").innerHTML = `
+    <th>Doctor ID</th>
+    <th>Name</th>
+    <th>Specialization</th>
+    <th>Email</th>
+    <th>Contact</th>
+    <th>Hours/Week</th>
+  `;
+
+  const body = document.getElementById("tableBody");
+
+  if (!data || data.length === 0) {
+    body.innerHTML = `<tr><td colspan="6" class="empty-row">No doctors found</td></tr>`;
+    document.getElementById("count").innerText = 0;
+    return;
+  }
+
+  body.innerHTML = data.map(d => `
+    <tr>
+      <td>${d.DOCTOR_ID ?? '-'}</td>
+      <td>${d.NAME ?? '-'}</td>
+      <td>${d.SPECIALIZATION ?? '-'}</td>
+      <td>${d.EMAIL ?? '-'}</td>
+      <td>${d.CONTACT_NO ?? '-'}</td>
+      <td>${d.HOURSPERWEEK ?? '-'}</td>
+    </tr>
+  `).join('');
+
+  document.getElementById("count").innerText = data.length;
+}
+
+/* ================= VOLUNTEERS ================= */
+async function loadVolunteers() {
+  const res = await fetch(`${API}/api/coordinators/${shelterId}/volunteers`);
+  const data = await res.json();
+
+  document.getElementById("pageTitle").innerText = "Volunteers";
+
+  document.querySelector("thead tr").innerHTML = `
+    <th>Volunteer ID</th>
+    <th>Name</th>
+    <th>Phone</th>
+    <th>Email</th>
+    <th>Emergency Contact</th>
+    <th>Hours</th>
+    <th>Status</th>
+  `;
+
+  const body = document.getElementById("tableBody");
+
+  if (!data || data.length === 0) {
+    body.innerHTML = `<tr><td colspan="7" class="empty-row">No volunteers found</td></tr>`;
+    document.getElementById("count").innerText = 0;
+    return;
+  }
+
+  body.innerHTML = data.map(v => `
+    <tr>
+      <td>${v.VOLUNTEER_ID ?? '-'}</td>
+      <td>${v.NAME ?? '-'}</td>
+      <td>${v.PHONE ?? '-'}</td>
+      <td>${v.EMAIL ?? '-'}</td>
+      <td>${v.EMERGENCY_CONTACT ?? '-'}</td>
+      <td>${v.HOURS ?? '-'}</td>
+      <td><span class="status ok">${v.STATUS ?? '-'}</span></td>
+    </tr>
+  `).join('');
+
+  document.getElementById("count").innerText = data.length;
+}
+
+/* ================= MEDICAL RECORDS ================= */
+async function loadMedicalRecords() {
+  const res = await fetch(`${API}/api/coordinators/${shelterId}/medical-records`);
+  const data = await res.json();
+
+  document.getElementById("pageTitle").innerText = "Medical Records";
+
+  document.querySelector("thead tr").innerHTML = `
+    <th>Record ID</th>
+    <th>Refugee</th>
+    <th>Doctor</th>
+    <th>Date</th>
+    <th>Diagnosis</th>
+    <th>Treatment</th>
+    <th>Critical</th>
+  `;
+
+  const body = document.getElementById("tableBody");
+
+  if (!data || data.length === 0) {
+    body.innerHTML = `<tr><td colspan="7" class="empty-row">No medical records found</td></tr>`;
+    document.getElementById("count").innerText = 0;
+    return;
+  }
+
+  body.innerHTML = data.map(m => `
+    <tr>
+      <td>${m.RECORD_ID ?? '-'}</td>
+      <td>${m.REFUGEE_NAME ?? '-'}</td>
+      <td>${m.DOCTOR_NAME ?? '-'}</td>
+      <td>${m.RECORD_DATE ? new Date(m.RECORD_DATE).toLocaleDateString() : '-'}</td>
+      <td class="wrap">${m.DIAGNOSIS ?? '-'}</td>
+      <td class="wrap">${m.TREATMENT ?? '-'}</td>
+      <td><span class="status ${m.IS_CRITICAL === 'Y' ? 'critical' : 'ok'}">
+        ${m.IS_CRITICAL === 'Y' ? 'Yes' : 'No'}
+      </span></td>
+    </tr>
+  `).join('');
+
+  document.getElementById("count").innerText = data.length;
+}
+
+/* ================= INCIDENTS ================= */
+async function loadIncidents() {
+  const res = await fetch(`${API}/api/coordinators/${shelterId}/incidents`);
+  const data = await res.json();
+
+  document.getElementById("pageTitle").innerText = "Incidents";
+
+  document.querySelector("thead tr").innerHTML = `
+    <th>Incident ID</th>
+    <th>Date</th>
+    <th>Refugee</th>
+    <th>Volunteer</th>
+    <th>Severity</th>
+    <th>Description</th>
+  `;
+
+  const body = document.getElementById("tableBody");
+
+  if (!data || data.length === 0) {
+    body.innerHTML = `<tr><td colspan="6" class="empty-row">No incidents found</td></tr>`;
+    document.getElementById("count").innerText = 0;
+    return;
+  }
+
+  body.innerHTML = data.map(i => `
+    <tr>
+      <td>${i.INCIDENT_ID ?? '-'}</td>
+      <td>${i.DATE_REPORTED ? new Date(i.DATE_REPORTED).toLocaleDateString() : '-'}</td>
+      <td>${i.REFUGEE_NAME ?? '-'}</td>
+      <td>${i.VOLUNTEER_NAME ?? '-'}</td>
+      <td><span class="status ${i.SEVERITY === 'HIGH' ? 'critical' : 'ok'}">
+        ${i.SEVERITY ?? '-'}
+      </span></td>
+      <td class="wrap">${i.DESCRIPTION ?? '-'}</td>
+    </tr>
+  `).join('');
+
+  document.getElementById("count").innerText = data.length;
+}
+
+/* ================= AID DISTRIBUTIONS ================= */
+async function loadAidDistributions() {
+  const res = await fetch(`${API}/api/coordinators/${shelterId}/aid`);
+  const data = await res.json();
+
+  document.getElementById("pageTitle").innerText = "Aid Tasks";
+
+  document.querySelector("thead tr").innerHTML = `
+    <th>Distribution ID</th>
+    <th>Refugee</th>
+    <th>Volunteer</th>
+    <th>Item</th>
+    <th>Quantity</th>
+    <th>Date</th>
+    <th>Status</th>
+  `;
+
+  const body = document.getElementById("tableBody");
+
+  if (!data || data.length === 0) {
+    body.innerHTML = `<tr><td colspan="7" class="empty-row">No aid tasks found</td></tr>`;
+    document.getElementById("count").innerText = 0;
+    return;
+  }
+
+  body.innerHTML = data.map(a => `
+    <tr>
+      <td>${a.DISTRIBUTION_ID ?? '-'}</td>
+      <td>${a.REFUGEE_NAME ?? '-'}</td>
+      <td>${a.VOLUNTEER_NAME ?? '-'}</td>
+      <td>${a.ITEM_NAME ?? '-'}</td>
+      <td>${a.QUANTITY ?? '-'}</td>
+      <td>${a.DISTRIBUTION_DATE ? new Date(a.DISTRIBUTION_DATE).toLocaleDateString() : '-'}</td>
+      <td><span class="status ${a.STATUS === 'PENDING' ? 'pending' : 'ok'}">
+        ${a.STATUS ?? '-'}
+      </span></td>
+    </tr>
+  `).join('');
+
+  document.getElementById("count").innerText = data.length;
+}
+
+/* ================= ASSIGN CAMP ================= */
+function openAssignCamp() {
+  const refugeeId = prompt("Enter Refugee ID:");
+  const campId    = prompt("Enter Camp ID:");
+
+  if (!refugeeId || !campId) {
+    alert("Both Refugee ID and Camp ID are required");
+    return;
+  }
+
+  fetch(`${API}/api/coordinators/${shelterId}/refugees/${refugeeId}/assign-camp`, {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify({ camp_id: campId })
+  })
+  .then(r => r.json())
+  .then(data => {
+    alert(data.message || data.error);
+    loadAllRefugees();
+  })
+  .catch(() => alert("Failed to assign camp"));
+}
+
+/* ================= DISCHARGE REFUGEE ================= */
+function openDischargeRefugee() {
+  const refugeeId = prompt("Enter Refugee ID to discharge:");
+
+  if (!refugeeId) {
+    alert("Refugee ID is required");
+    return;
+  }
+
+  if (!confirm(`Are you sure you want to discharge refugee ${refugeeId}?`)) return;
+
+  fetch(`${API}/api/coordinators/${shelterId}/refugees/${refugeeId}/discharge`, {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" }
+  })
+  .then(r => r.json())
+  .then(data => {
+    alert(data.message || data.error);
+    loadAllRefugees();
+  })
+  .catch(() => alert("Failed to discharge refugee"));
+}
+/*================Inventory=================*/
+async function loadInventory() {
+  const res  = await fetch(`${API}/api/coordinators/${shelterId}/inventory`);
+  const data = await res.json();
+
+  document.getElementById("pageTitle").innerText = "Inventory";
+
+  document.querySelector("thead tr").innerHTML = `
+    <th>Product ID</th>
+    <th>Product Name</th>
+    <th>Category</th>
+    <th>Quantity</th>
+    <th>In Date</th>
+    <th>Exp Date</th>
+    <th>Low Alert</th>
+    <th>Action</th>
+  `;
+
+  const body = document.getElementById("tableBody");
+
+  if (!data || data.length === 0) {
+    body.innerHTML = `<tr><td colspan="8" class="empty-row">No inventory found</td></tr>`;
+    document.getElementById("count").innerText = 0;
+    return;
+  }
+
+  body.innerHTML = data.map(item => `
+    <tr>
+      <td>${item.PRODUCT_ID ?? '-'}</td>
+      <td>${item.PRODUCT_NAME ?? '-'}</td>
+      <td>${item.CATEGORY ?? '-'}</td>
+      <td class="${item.QUANTITY <= item.LOW_ALERT ? 'low-stock' : ''}">
+        ${item.QUANTITY ?? 0}
+        ${item.QUANTITY <= item.LOW_ALERT
+          ? '<span class="status critical">Low</span>'
+          : ''}
+      </td>
+      <td>${item.IN_DATE  ? new Date(item.IN_DATE).toLocaleDateString()  : '-'}</td>
+      <td>${item.EXP_DATE ? new Date(item.EXP_DATE).toLocaleDateString() : '-'}</td>
+      <td>${item.LOW_ALERT ?? '-'}</td>
+      <td>
+        <button class="btn btn-primary"
+          onclick="updateInventoryItem(${item.PRODUCT_ID}, ${item.QUANTITY})">
+          Update Qty
+        </button>
+      </td>
+    </tr>
+  `).join('');
+
+  document.getElementById("count").innerText = data.length;
+}
+
+/* ================= UPDATE INVENTORY ITEM ================= */
+function updateInventoryItem(productId, currentQty) {
+  const newQty = prompt(`Current quantity: ${currentQty}\nEnter new quantity:`);
+
+  if (newQty === null) return;
+  if (isNaN(newQty) || Number(newQty) < 0) {
+    alert("Quantity must be a non-negative number");
+    return;
+  }
+
+  fetch(`${API}/api/coordinators/${shelterId}/inventory/${productId}`, {
+    method:  "PUT",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify({ quantity: Number(newQty) })
+  })
+  .then(r => r.json())
+  .then(data => {
+    alert(data.message || data.error);
+    loadInventory();
+  })
+  .catch(() => alert("Failed to update inventory"));
+}
+/* ================= CREATE AID DISTRIBUTION ================= */
+function openCreateAid() {
+  const refugee_id   = prompt("Enter Refugee ID:");
+  if (!refugee_id) return;
+
+  const item_name    = prompt("Enter Item Name (must match inventory e.g. Rice, Blanket, Insulin):");
+  if (!item_name) return;
+
+  const quantity     = prompt("Enter Quantity:");
+  if (!quantity || isNaN(quantity) || Number(quantity) <= 0) {
+    alert("Quantity must be a positive number");
+    return;
+  }
+
+  const volunteer_id = prompt("Enter Volunteer ID to assign task (leave blank to assign later):");
+
+  const body = {
+    refugee_id: Number(refugee_id),
+    item_name:  item_name.trim(),
+    quantity:   Number(quantity)
+  };
+
+  if (volunteer_id && volunteer_id.trim()) {
+    body.volunteer_id = Number(volunteer_id);
+  }
+
+  console.log("Creating aid distribution:", body);
+
+  fetch(`${API}/api/coordinators/${shelterId}/aid`, {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify(body)
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.distributionId) {
+      alert(`✅ Aid task created!\nDistribution ID: ${data.distributionId}`);
+    } else {
+      alert("❌ " + (data.error || "Failed to create aid task"));
+    }
+    loadAidDistributions();
+  })
+  .catch(err => {
+    console.error("Create aid error:", err);
+    alert("Network error - failed to create aid distribution");
+  });
+}
+
+/* ================= ASSIGN VOLUNTEER TO AID TASK ================= */
+function assignVolunteerToAid() {
+  const distributionId = prompt("Enter Distribution ID:");
+  if (!distributionId || isNaN(distributionId)) {
+    alert("Valid Distribution ID is required");
+    return;
+  }
+
+  const volunteerId = prompt("Enter Volunteer ID to assign:");
+  if (!volunteerId || isNaN(volunteerId)) {
+    alert("Valid Volunteer ID is required");
+    return;
+  }
+
+  const confirmMsg = `Assign Volunteer ${volunteerId} to Distribution ${distributionId}?`;
+  if (!confirm(confirmMsg)) return;
+
+  fetch(`${API}/api/coordinators/${shelterId}/aid/${distributionId}`, {
+    method:  "PUT",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify({ volunteer_id: Number(volunteerId) })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.message) {
+      alert("✅ " + data.message);
+    } else {
+      alert("❌ " + (data.error || "Failed to assign volunteer"));
+    }
+    loadAidDistributions();
+  })
+  .catch(err => {
+    console.error("Assign volunteer error:", err);
+    alert("Network error - failed to assign volunteer");
+  });
+}
+/* ================= LOGOUT ================= */
+function logout(){
+  localStorage.clear();
+  window.location.href = "login.html";
+}
+
+/* INIT */
+loadAllRefugees();
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Doctors – Admin</title>
+<link rel="stylesheet" href="donation.css">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+<style>
+  .crud-section{display:none;background:#fff;border:1px solid #dbe3ef;border-radius:14px;padding:1.2rem;margin-bottom:1rem;}
+  .crud-section.show{display:block;}
+  .crud-section h3{margin:0 0 0.8rem;color:#1e3a8a;border-bottom:2px solid #60a5fa;padding-bottom:0.4rem;}
+  .crud-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.6rem;}
+  .action-bar{display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem;padding:0.8rem;background:#fff;border:1px solid #dbe3ef;border-radius:14px;}
+</style>
+</head>
+<body>
+<div class="app">
+
+<aside class="sidebar">
+  <div class="brand"><i class="fa-solid fa-shield-halved"></i><h1>Admin</h1></div>
+  <div class="menu">
+    <a href="dashboard.html"><i class="fa fa-chart-line"></i> Dashboard</a>
+    <a href="refugees.html"><i class="fa fa-users"></i> Refugees</a>
+    <a href="doctor.html"><i class="fa fa-user-doctor"></i> Doctors</a>
+    <a href="volunteer.html"><i class="fa fa-hands-helping"></i> Volunteers</a>
+    <a href="coordinator.html"><i class="fa fa-user-tie"></i> Coordinators</a>
+    <a href="organization.html"><i class="fa fa-user-tie"></i> Organization</a>
+    <a href="shelter.html"><i class="fa fa-building"></i> Shelters</a>
+    <a href="camp.html"><i class="fa fa-campground"></i> Camps</a>
+    <a href="inventory.html"><i class="fa fa-warehouse"></i> Inventory</a>
+    <a href="aid.html"><i class="fa fa-box"></i> Aid Distribution</a>
+    <a href="donations-show.html"><i class="fa fa-hand-holding-dollar"></i> Donations</a>
+    <a href="medical.html"><i class="fa fa-file-medical"></i> Medical Records</a>
+    <a href="incidents.html"><i class="fa fa-exclamation-triangle"></i> Incidents</a>
+    <a href="critical.html"><i class="fa fa-heart-pulse"></i> Critical Patients</a>
+    <a onclick="logout()"><i class="fa fa-right-from-bracket"></i> Logout</a>
+  </div>
+</aside>
+
+<main class="content">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <h3>Doctors</h3>
+    <div class="profile">
+      <div class="avatar">A</div>
+      <span id="info">Admin</span>
+    </div>
+  </div>
+
+  <!-- ACTION BAR -->
+  <div class="action-bar">
+    <button class="btn btn-primary" onclick="showAddDoctor()"><i class="fa fa-plus"></i> Add Doctor</button>
+    <button class="btn btn-soft" onclick="toggleSearch()"><i class="fa fa-magnifying-glass"></i> Search</button>
+    <button class="btn btn-soft" onclick="loadDoctors()"><i class="fa fa-refresh"></i> Refresh</button>
+  </div>
+
+  <!-- CRUD FORM -->
+  <div class="crud-section" id="crudSection">
+    <h3 id="crudTitle">Form</h3>
+    <div class="crud-form" id="crudForm"></div>
+  </div>
+
+  <!-- SEARCH -->
+  <div class="card" id="searchBox" style="display:none;margin-bottom:1rem;">
+    <h3>Search Doctors</h3>
+    <div class="toolbar">
+      <input id="searchInput" placeholder="Search...">
+      <select id="searchType">
+        <option value="name">By Name</option>
+        <option value="id">By ID</option>
+        <option value="specialization">By Specialization</option>
+        <option value="shelter">By Shelter ID</option>
+      </select>
+      <button class="btn btn-primary" onclick="handleSearch()">Search</button>
+      <button class="btn btn-soft" onclick="clearSearch()">Clear</button>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="cards-grid">
+    <div class="card">
+      <p class="stat-title">Total Doctors</p>
+      <p class="stat-value" id="count">0</p>
+    </div>
+    <div class="card">
+      <p class="stat-title">Specializations</p>
+      <p class="stat-value" id="specCount">0</p>
+    </div>
+    <div class="card">
+      <p class="stat-title">Unassigned</p>
+      <p class="stat-value" id="unassignedCount">0</p>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Doctor ID</th>
+          <th>Name</th>
+          <th>Specialization</th>
+          <th>Email</th>
+          <th>Contact</th>
+          <th>Hours/Week</th>
+          <th>Salary</th>
+          <th>Hire Date</th>
+          <th>Shelter</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <tr><td colspan="10" class="empty-row">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+</div>
+
+<script>
+const API   = "http://localhost:3000";
+const token = localStorage.getItem("token");
+const role  = localStorage.getItem("role");
+
+if (!token || role !== "admin") {
+  alert("Access denied.");
+  window.location.href = "login.html";
+}
+
+document.getElementById("info").innerText = "Admin: " + (localStorage.getItem("username") || "");
+
+let allDoctors = [];
+
+// ── Fetch Helper ───────────────────────────────────────────
+async function apiFetch(url, options = {}) {
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token,
+      ...(options.headers || {})
+    }
+  });
+  return await res.json();
+}
+
+// ── CRUD Helpers ───────────────────────────────────────────
+function showCrud(title, html) {
+  document.getElementById("crudTitle").innerText = title;
+  document.getElementById("crudForm").innerHTML = html;
+  document.getElementById("crudSection").classList.add("show");
+  document.getElementById("crudSection").scrollIntoView({ behavior: "smooth" });
+}
+
+function hideCrud() {
+  document.getElementById("crudSection").classList.remove("show");
+}
+
+function toggleSearch() {
+  const box = document.getElementById("searchBox");
+  box.style.display = box.style.display === "none" ? "block" : "none";
+}
+
+// ── Load All Doctors ───────────────────────────────────────
+async function loadDoctors() {
+  hideCrud();
+  document.getElementById("searchBox").style.display = "none";
+
+  const data = await apiFetch(`${API}/api/doctors`);
+  allDoctors = Array.isArray(data) ? data : [];
+
+  // Update stats
+  document.getElementById("count").innerText = allDoctors.length;
+
+  const specs = new Set(allDoctors.map(d => d.SPECIALIZATION).filter(Boolean));
+  document.getElementById("specCount").innerText = specs.size;
+
+  document.getElementById("unassignedCount").innerText =
+    allDoctors.filter(d => !d.SHELTER_ID).length;
+
+  // Fetch shelter names
+  let shelterMap = {};
+  try {
+    const shelters = await apiFetch(`${API}/api/shelters`);
+    if (Array.isArray(shelters)) {
+      shelters.forEach(s => { shelterMap[s.SHELTER_ID] = s.SHELTER_NAME; });
+    }
+  } catch(e) {}
+
+  renderDoctors(allDoctors, shelterMap);
+}
+
+function renderDoctors(data, shelterMap = {}) {
+  const body = document.getElementById("tableBody");
+  document.getElementById("count").innerText = data.length;
+
+  if (!data.length) {
+    body.innerHTML = `<tr><td colspan="10" class="empty-row">No doctors found</td></tr>`;
+    return;
+  }
+
+  body.innerHTML = data.map(d => `
+    <tr>
+      <td>${d.DOCTOR_ID}</td>
+      <td>${d.NAME ?? '-'}</td>
+      <td>${d.SPECIALIZATION ?? '-'}</td>
+      <td>${d.EMAIL ?? '-'}</td>
+      <td>${d.CONTACT_NO ?? '-'}</td>
+      <td>${d.HOURSPERWEEK ?? '-'}</td>
+      <td>${d.SALARY ? '$' + Number(d.SALARY).toLocaleString() : '-'}</td>
+      <td>${d.HIREDATE ? new Date(d.HIREDATE).toLocaleDateString() : '-'}</td>
+      <td>${shelterMap[d.SHELTER_ID] ?? d.SHELTER_ID ?? 'Unassigned'}</td>
+      <td>
+        <button class="btn btn-primary" onclick="showEditDoctor(${d.DOCTOR_ID},
+          '${(d.NAME??'').replace(/'/g,"\\'")}',
+          '${(d.SPECIALIZATION??'').replace(/'/g,"\\'")}',
+          '${(d.EMAIL??'').replace(/'/g,"\\'")}',
+          '${(d.CONTACT_NO??'').replace(/'/g,"\\'")}',
+          ${d.HOURSPERWEEK??'null'},
+          ${d.SALARY??'null'},
+          ${d.SHELTER_ID??'null'})">Edit</button>
+        <button class="btn btn-danger" onclick="deleteDoctor(${d.DOCTOR_ID})">Delete</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// ── Add Doctor ─────────────────────────────────────────────
+function showAddDoctor() {
+  showCrud("Add New Doctor", `
+    <div class="input-group">
+      <label>Name *</label>
+      <input id="ad_name" placeholder="Full Name" required>
+    </div>
+    <div class="input-group">
+      <label>Specialization</label>
+      <select id="ad_spec">
+        <option value="">Select...</option>
+        <option value="General">General</option>
+        <option value="Pediatrics">Pediatrics</option>
+        <option value="Surgery">Surgery</option>
+        <option value="Psychiatry">Psychiatry</option>
+        <option value="Orthopedics">Orthopedics</option>
+        <option value="Cardiology">Cardiology</option>
+        <option value="Dermatology">Dermatology</option>
+        <option value="Emergency">Emergency</option>
+        <option value="Internal Medicine">Internal Medicine</option>
+      </select>
+    </div>
+    <div class="input-group">
+      <label>Email</label>
+      <input id="ad_email" placeholder="Email Address" type="email">
+    </div>
+    <div class="input-group">
+      <label>Contact No</label>
+      <input id="ad_contact" placeholder="Phone Number">
+    </div>
+    <div class="input-group">
+      <label>Hours/Week</label>
+      <input id="ad_hours" placeholder="Hours per Week" type="number" min="0">
+    </div>
+    <div class="input-group">
+      <label>Salary</label>
+      <input id="ad_salary" placeholder="Monthly Salary" type="number" min="0">
+    </div>
+    <div class="input-group">
+      <label>Shelter ID</label>
+      <input id="ad_shelter" placeholder="Assign to Shelter (optional)" type="number">
+    </div>
+    <div class="input-group">
+      <label>Coordinator ID</label>
+      <input id="ad_coordinator" placeholder="Coordinator ID (optional)" type="number">
+    </div>
+    <div style="display:flex;gap:0.5rem;align-self:end;">
+      <button class="btn btn-primary" onclick="submitAddDoctor()">
+        <i class="fa fa-check"></i> Save
+      </button>
+      <button class="btn btn-soft" onclick="hideCrud()">Cancel</button>
+    </div>
+  `);
+}
+async function submitAddDoctor() {
+
+  const name = document.getElementById("ad_name")?.value.trim();
+
+  if (!name) return alert("Doctor name is required");
+
+  const payload = {
+    name: name,
+    specialization: document.getElementById("ad_spec")?.value || null,
+    email: document.getElementById("ad_email")?.value.trim() || null,
+    contact_no: document.getElementById("ad_contact")?.value.trim() || null,
+    hoursperweek: document.getElementById("ad_hours")?.value
+      ? Number(document.getElementById("ad_hours").value)
+      : null,
+    salary: document.getElementById("ad_salary")?.value
+      ? Number(document.getElementById("ad_salary").value)
+      : null,
+    shelter_id: document.getElementById("ad_shelter")?.value
+      ? Number(document.getElementById("ad_shelter").value)
+      : null,
+    coordinator_id: document.getElementById("ad_coordinator")?.value
+      ? Number(document.getElementById("ad_coordinator").value)
+      : null
+  };
+
+  console.log("DOCTOR PAYLOAD:", payload);
+
+  const d = await apiFetch(`${API}/api/doctors`, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+
+  alert(d.message || d.error);
+  hideCrud();
+  loadDoctors();
+}
+// ── Edit Doctor ────────────────────────────────────────────
+function showEditDoctor(id, curName, curSpec, curEmail, curContact, curHours, curSalary, curShelter) {
+  showCrud("Edit Doctor #" + id, `
+    <div class="input-group">
+      <label>Name *</label>
+      <input id="ed_name" value="${curName}" required>
+    </div>
+    <div class="input-group">
+      <label>Specialization</label>
+      <select id="ed_spec">
+        <option value="">Select...</option>
+        <option value="General" ${curSpec==='General'?'selected':''}>General</option>
+        <option value="Pediatrics" ${curSpec==='Pediatrics'?'selected':''}>Pediatrics</option>
+        <option value="Surgery" ${curSpec==='Surgery'?'selected':''}>Surgery</option>
+        <option value="Psychiatry" ${curSpec==='Psychiatry'?'selected':''}>Psychiatry</option>
+        <option value="Orthopedics" ${curSpec==='Orthopedics'?'selected':''}>Orthopedics</option>
+        <option value="Cardiology" ${curSpec==='Cardiology'?'selected':''}>Cardiology</option>
+        <option value="Dermatology" ${curSpec==='Dermatology'?'selected':''}>Dermatology</option>
+        <option value="Emergency" ${curSpec==='Emergency'?'selected':''}>Emergency</option>
+        <option value="Internal Medicine" ${curSpec==='Internal Medicine'?'selected':''}>Internal Medicine</option>
+      </select>
+    </div>
+    <div class="input-group">
+      <label>Email</label>
+      <input id="ed_email" value="${curEmail ?? ''}" type="email">
+    </div>
+    <div class="input-group">
+      <label>Contact No</label>
+      <input id="ed_contact" value="${curContact ?? ''}">
+    </div>
+    <div class="input-group">
+      <label>Hours/Week</label>
+      <input id="ed_hours" value="${curHours ?? ''}" type="number" min="0">
+    </div>
+    <div class="input-group">
+      <label>Salary</label>
+      <input id="ed_salary" value="${curSalary ?? ''}" type="number" min="0">
+    </div>
+    <div class="input-group">
+      <label>Shelter ID</label>
+      <input id="ed_shelter" value="${curShelter ?? ''}" type="number">
+    </div>
+    <div style="display:flex;gap:0.5rem;align-self:end;">
+      <button class="btn btn-primary" onclick="submitEditDoctor(${id})">
+        <i class="fa fa-check"></i> Update
+      </button>
+      <button class="btn btn-soft" onclick="hideCrud()">Cancel</button>
+    </div>
+  `);
+}
+async function submitEditDoctor(id) {
+
+  const form = document.getElementById("crudForm");
+
+  const nameEl = form.querySelector("#ed_name");
+
+  if (!nameEl || nameEl.value.trim() === "") {
+    return alert("Name is required");
+  }
+
+  const b = {
+    name: nameEl.value.trim()
+  };
+
+  const spec    = form.querySelector("#ed_spec")?.value;
+  const email   = form.querySelector("#ed_email")?.value.trim();
+  const contact = form.querySelector("#ed_contact")?.value.trim();
+  const hours   = form.querySelector("#ed_hours")?.value;
+  const salary  = form.querySelector("#ed_salary")?.value;
+  const shelter = form.querySelector("#ed_shelter")?.value;
+
+  if (spec) b.specialization = spec;
+  if (email) b.email = email;
+  if (contact) b.contact_no = contact;
+  if (hours) b.hoursperweek = Number(hours);
+  if (salary) b.salary = Number(salary);
+  if (shelter) b.shelter_id = Number(shelter);
+
+  console.log("EDIT DOCTOR:", b);
+
+  const d = await apiFetch(`${API}/api/doctors/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(b)
+  });
+
+  alert(d.message || d.error);
+  hideCrud();
+  loadDoctors();
+}
+// ── Delete Doctor ──────────────────────────────────────────
+async function deleteDoctor(id) {
+  if (!confirm(`Are you sure you want to delete Doctor #${id}?\n\nThis will also remove any linked medical records.`)) return;
+
+  const d = await apiFetch(`${API}/api/doctors/${id}`, { method: "DELETE" });
+  alert(d.message || d.error);
+  loadDoctors();
+}
+
+// ── Search ─────────────────────────────────────────────────
+async function handleSearch() {
+  const term = document.getElementById("searchInput").value.trim();
+  const type = document.getElementById("searchType").value;
+  if (!term) return alert("Enter a search term");
+
+  if (type === "id") {
+    const d = await apiFetch(`${API}/api/doctors/${term}`);
+    if (d.error) return alert(d.error);
+    renderDoctors([d]);
+    return;
+  }
+
+  // Fetch all and filter client-side
+  const data = await apiFetch(`${API}/api/doctors`);
+  if (!Array.isArray(data)) return alert("Failed to fetch");
+
+  let filtered;
+
+  if (type === "name") {
+    filtered = data.filter(d =>
+      d.NAME?.toLowerCase().includes(term.toLowerCase())
+    );
+  } else if (type === "specialization") {
+    filtered = data.filter(d =>
+      d.SPECIALIZATION?.toLowerCase().includes(term.toLowerCase())
+    );
+  } else if (type === "shelter") {
+    filtered = data.filter(d =>
+      String(d.SHELTER_ID) === term
+    );
+  }
+
+  if (!filtered || !filtered.length) {
+    document.getElementById("tableBody").innerHTML =
+      `<tr><td colspan="10" class="empty-row">No results for "${term}"</td></tr>`;
+    document.getElementById("count").innerText = 0;
+    return;
+  }
+
+  // Fetch shelter names for results
+  let shelterMap = {};
+  try {
+    const shelters = await apiFetch(`${API}/api/shelters`);
+    if (Array.isArray(shelters)) {
+      shelters.forEach(s => { shelterMap[s.SHELTER_ID] = s.SHELTER_NAME; });
+    }
+  } catch(e) {}
+
+  renderDoctors(filtered, shelterMap);
+}
+
+function clearSearch() {
+  document.getElementById("searchInput").value = "";
+  loadDoctors();
+}
+
+// ── Logout ─────────────────────────────────────────────────
+function logout() {
+  localStorage.clear();
+  window.location.href = "login.html";
+}
+
+// ── Init ───────────────────────────────────────────────────
+loadDoctors();
+</script>
+</body>
+</html>

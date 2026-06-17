@@ -1,0 +1,392 @@
+/* ================================================================
+   GLOBAL THEME – same variables you already used
+   ================================================================ */
+:root{
+  --bg:#f1f5f9;
+  --surface:#fff;
+  --surface-soft:#f8fafc;
+  --primary:#60a5fa;
+  --primary-dark:#3b82f6;
+  --text:#0f172a;
+  --muted:#64748b;
+  --border:#dbe3ef;
+  --success:#16a34a;
+  --warning:#f59e0b;
+  --danger:#dc2626;
+  --radius:14px;
+  --shadow:0 14px 30px -22px rgba(15,23,42,0.45);
+}
+
+/* --------------------------------------------------------------
+   RESET & BASE TYPOGRAPHY
+   -------------------------------------------------------------- */
+*,
+*::before,
+*::after{
+  box-sizing:border-box;
+}
+body{
+  margin:0;
+  font-family:"Segoe UI",Arial,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+}
+a{
+  color:inherit;
+  text-decoration:none;
+}
+
+/* --------------------------------------------------------------
+   LAYOUT – wrapper, sidebar, main content, top‑bar
+   -------------------------------------------------------------- */
+.app{
+  display:grid;
+  grid-template-columns:260px 1fr;
+  min-height:100vh;
+}
+.sidebar{
+  background:#dbeafe;
+  color:#334155;
+  padding:1rem .8rem;
+  position:sticky;
+  top:0;
+  height:100vh;
+  overflow-y:auto;
+}
+.brand{
+  display:flex;
+  align-items:center;
+  gap:.65rem;
+  margin-bottom:1.2rem;
+  color:#1e3a8a;
+}
+.brand i{
+  color:#3b82f6;
+  font-size:1.3rem;
+}
+.brand h1{
+  margin:0;
+  font-size:1.25rem;
+}
+.menu{
+  display:grid;
+  gap:.25rem;
+}
+.menu a{
+  display:flex;
+  align-items:center;
+  gap:.6rem;
+  padding:.62rem .7rem;
+  border-radius:10px;
+  transition:.2s background,.2s color;
+}
+.menu a.active,
+.menu a:hover{
+  background:rgba(96,165,250,.28);
+  color:#1e3a8a;
+}
+
+/* ---------- Main content ---------- */
+.content{
+  padding:1rem 1.2rem;
+}
+
+/* ---------- Top‑bar ---------- */
+.topbar{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:.75rem 1rem;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:1rem;
+  box-shadow:var(--shadow);
+}
+.topbar-left{
+  display:flex;
+  align-items:center;
+  gap:.7rem;
+}
+.icon-btn{
+  border:1px solid var(--border);
+  background:#fff;
+  width:38px;
+  height:38px;
+  border-radius:10px;
+  cursor:pointer;
+}
+.profile{
+  display:flex;
+  align-items:center;
+  gap:.5rem;
+}
+.avatar{
+  width:34px;
+  height:34px;
+  border-radius:50%;
+  background:#dbeafe;
+  display:grid;
+  place-items:center;
+  color:var(--primary);
+  font-weight:700;
+}
+
+/* --------------------------------------------------------------
+   RE‑USABLE UI COMPONENTS
+   -------------------------------------------------------------- */
+
+/* Page header (title + optional action button) */
+.page-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:.8rem;
+  margin-bottom:1rem;
+  flex-wrap:wrap;
+}
+.page-header h2{margin:0;}
+
+/* Statistic cards */
+.cards-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:.8rem;
+  margin-bottom:1rem;
+}
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:1rem;
+  box-shadow:var(--shadow);
+}
+.stat-title{
+  color:var(--muted);
+  font-size:.86rem;
+  margin:0 0 .4rem;
+}
+.stat-value{
+  font-size:1.45rem;
+  font-weight:700;
+}
+
+/* Toolbar (search + buttons) */
+.toolbar{
+  display:flex;
+  gap:.6rem;
+  flex-wrap:wrap;
+  margin-bottom:.8rem;
+}
+.toolbar input{
+  flex:1;
+  min-width:240px;
+}
+
+/* Table wrapper */
+.table-wrap{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  overflow:auto;
+}
+table{
+  width:100%;
+  border-collapse:collapse;
+  min-width:960px;
+}
+th, td{
+  padding:.75rem;
+  text-align:left;
+  border-bottom:1px solid var(--border);
+  font-size:.9rem;
+}
+th{
+  background:var(--surface-soft);
+  font-weight:700;
+}
+
+/* Status badges */
+.status{
+  padding:.2rem .55rem;
+  border-radius:999px;
+  font-size:.78rem;
+  font-weight:700;
+}
+.status.ok{background:#dcfce7;color:#166534;}
+.status.warn{background:#fef3c7;color:#92400e;}
+.status.danger{background:#fee2e2;color:#991b1b;}
+
+/* Action icons inside tables */
+.actions{
+  display:flex;
+  gap:.35rem;
+}
+
+/* Buttons */
+.btn{
+  border:none;
+  border-radius:10px;
+  padding:.7rem .95rem;
+  font-weight:700;
+  cursor:pointer;
+  transition:.2s transform,.2s filter;
+}
+.btn:hover{
+  transform:translateY(-1px);
+  filter:brightness(1.02);
+}
+.btn-primary{
+  background:linear-gradient(135deg,#93c5fd,#60a5fa);
+  color:var(--text);
+}
+.btn-soft{
+  background:#e2e8f0;
+  color:var(--text);
+}
+.btn-danger{
+  background:#fee2e2;
+  color:#b91c1c;
+}
+
+/* Form elements */
+label{
+  font-weight:600;
+  font-size:.9rem;
+}
+input,
+select,
+textarea{
+  width:100%;
+  padding:.72rem .78rem;
+  border-radius:10px;
+  border:1px solid var(--border);
+  font:inherit;
+  background:#fff;
+  transition:.2s border-color,.2s box-shadow;
+}
+input:focus,
+select:focus,
+textarea:focus{
+  outline:none;
+  border-color:var(--primary);
+  box-shadow:0 0 0 4px rgba(96,165,250,.22);
+}
+
+/* Grid for forms (modal forms) */
+.form-grid{
+  display:grid;
+  gap:.95rem;
+}
+.input-group{
+  display:grid;
+  gap:.4rem;
+}
+
+/* --------------------------------------------------------------
+   MODAL (used for “Add Donation” / “Add Aid” forms)
+   -------------------------------------------------------------- */
+.modal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(2,6,23,.45);
+  justify-content:center;
+  align-items:flex-start;
+  padding:1rem;
+  overflow-y:auto;
+  z-index:40;
+}
+.modal.show{display:flex;}
+.modal-card{
+  width:min(100%,780px);
+  max-height:95vh;
+  overflow-y:auto;
+  background:#fff;
+  border-radius:16px;
+  border:1px solid var(--border);
+  padding:1rem;
+  margin-top:20px;
+}
+.modal-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:.75rem;
+}
+
+/* Status messages (used inside forms) */
+.status-message{
+  min-height:1.25rem;
+  margin-top:.5rem;
+  font-size:.9rem;
+  font-weight:600;
+}
+.status-message.success{color:#166534;}
+.status-message.error{color:#b91c1c;}
+.status-message.info{color:#1d4ed8;}
+
+/* Empty‑row placeholder for tables */
+.empty-row{
+  text-align:center;
+  color:#64748b;
+  font-style:italic;
+}
+
+/* --------------------------------------------------------------
+   RESPONSIVE BREAKPOINTS
+   -------------------------------------------------------------- */
+@media (max-width:992px){
+  .app{
+    grid-template-columns:1fr;
+  }
+  .sidebar{
+    height:auto;
+    position:static;
+  }
+}
+@media (max-width:768px){
+  .toolbar{
+    flex-direction:column;
+    align-items:stretch;
+  }
+  .toolbar input,
+  .toolbar button{
+    width:100%;
+  }
+  .content{
+    padding:.8rem;
+  }
+  .modal-card{
+    margin-top:10px;
+    padding:.8rem;
+  }
+}
+
+/* --------------------------------------------------------------
+   HELPERS TO HIDE/SHOW SIDEBAR (hamburger button)
+   -------------------------------------------------------------- */
+.hide-sidebar .sidebar{
+  display:none;
+}
+.hide-sidebar .app{
+  grid-template-columns:1fr;
+}
+
+/* ----------------------------------------------------------------
+   GLOBAL UTILITIES (optional)
+   ---------------------------------------------------------------- */
+.hide{display:none !important;}
+.menu a i{
+  font-size:1.1rem;
+  width:20px;
+  text-align:center;
+}
+
+
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}

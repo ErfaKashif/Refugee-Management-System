@@ -1,0 +1,101 @@
+/* ================= BASE ================= */
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:Arial, sans-serif;
+}
+
+body{
+background:#f4f6f9;
+color:#1e293b;
+}
+
+/* ================= LAYOUT ================= */
+.layout{
+display:flex;
+min-height:100vh;
+}
+
+/* ================= SIDEBAR ================= */
+.sidebar{
+width:240px;
+background:#0f172a;
+color:white;
+padding:20px;
+}
+
+.logo{
+margin-bottom:20px;
+color:#60a5fa;
+}
+
+.sidebar a{
+display:block;
+padding:12px;
+margin-bottom:8px;
+color:#cbd5e1;
+text-decoration:none;
+border-radius:8px;
+transition:0.2s;
+}
+
+.sidebar a:hover{
+background:#1e293b;
+}
+
+.sidebar a.active{
+background:#2563eb;
+color:white;
+}
+
+/* ================= MAIN ================= */
+.main{
+flex:1;
+padding:30px;
+}
+
+/* ================= HEADER ================= */
+.header h1{
+margin-bottom:5px;
+}
+
+.header p{
+color:#64748b;
+margin-bottom:20px;
+}
+
+/* ================= TABLE ================= */
+.table-box{
+background:white;
+border-radius:10px;
+overflow:hidden;
+box-shadow:0 5px 20px rgba(0,0,0,0.08);
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+}
+
+th{
+background:#e2e8f0;
+text-align:left;
+padding:12px;
+}
+
+td{
+padding:12px;
+border-bottom:1px solid #e5e7eb;
+}
+
+tr:hover{
+background:#f9fafb;
+}
+
+/* empty row */
+td[colspan]{
+text-align:center;
+color:#64748b;
+padding:20px;
+}

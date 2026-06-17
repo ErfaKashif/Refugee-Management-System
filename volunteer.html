@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Volunteers – Admin</title>
+<link rel="stylesheet" href="donation.css">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+<style>
+  .crud-section{display:none;background:#fff;border:1px solid #dbe3ef;border-radius:14px;padding:1.2rem;margin-bottom:1rem;}
+  .crud-section.show{display:block;}
+  .crud-section h3{margin:0 0 0.8rem;color:#1e3a8a;border-bottom:2px solid #60a5fa;padding-bottom:0.4rem;}
+  .crud-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.6rem;}
+  .action-bar{display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem;padding:0.8rem;background:#fff;border:1px solid #dbe3ef;border-radius:14px;}
+  .status-message{padding:0.6rem 1rem;border-radius:8px;margin-bottom:0.8rem;display:none;font-size:0.9rem;}
+  .status-message.show{display:block;}
+  .status-message.success{background:#dcfce7;color:#166534;border:1px solid #bbf7d0;}
+  .status-message.error{background:#fee2e2;color:#991b1b;border:1px solid #fecaca;}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ── SIDEBAR (unchanged, exact match) ── -->
+<aside class="sidebar">
+  <div class="brand"><i class="fa-solid fa-shield-halved"></i><h1>Admin</h1></div>
+  <div class="menu">
+    <a href="adminView.html"><i class="fa fa-chart-line"></i> Dashboard</a>
+    <a href="refugees.html"><i class="fa fa-users"></i> Refugees</a>
+    <a href="doctor.html"><i class="fa fa-user-doctor"></i> Doctors</a>
+    <a class="active"><i class="fa fa-hands-helping"></i> Volunteers</a>
+    <a href="coordinator.html"><i class="fa fa-user-tie"></i> Coordinators</a>
+    <a href="organization.html"><i class="fa fa-sitemap"></i> Organizations</a>
+    <a href="shelter.html"><i class="fa fa-building"></i> Shelters</a>
+    <a href="camp.html"><i class="fa fa-campground"></i> Camps</a>
+    <a href="inventory.html"><i class="fa fa-warehouse"></i> Inventory</a>
+    <a href="aid.html"><i class="fa fa-box"></i> Aid Distribution</a>
+    <a href="donations-show.html"><i class="fa fa-hand-holding-dollar"></i> Donations</a>
+    <a href="medical.html"><i class="fa fa-file-medical"></i> Medical Records</a>
+    <a href="incidents.html"><i class="fa fa-exclamation-triangle"></i> Incidents</a>
+    <a href="critical.html"><i class="fa fa-heart-pulse"></i> Critical Patients</a>
+    <a onclick="logout()"><i class="fa fa-right-from-bracket"></i> Logout</a>
+  </div>
+</aside>
+
+<main class="content">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <h3>Volunteers</h3>
+    <div class="profile">
+      <div class="avatar">A</div>
+      <span id="info">Admin</span>
+    </div>
+  </div>
+
+  <!-- ACTION BAR -->
+  <div class="action-bar">
+    <button class="btn btn-primary" onclick="showAddVolunteer()"><i class="fa fa-plus"></i> Add Volunteer</button>
+    <button class="btn btn-soft"    onclick="showReassignForm()"><i class="fa fa-arrows-rotate"></i> Reassign Volunteer</button>
+    <button class="btn btn-soft"    onclick="toggleSearch()"><i class="fa fa-magnifying-glass"></i> Search</button>
+    <button class="btn btn-soft"    onclick="loadVolunteers()"><i class="fa fa-refresh"></i> Refresh</button>
+  </div>
+
+  <!-- CRUD FORM -->
+  <div class="crud-section" id="crudSection">
+    <h3 id="crudTitle">Form</h3>
+    <div class="crud-form" id="crudForm"></div>
+  </div>
+
+  <!-- SEARCH -->
+  <div class="card" id="searchBox" style="display:none;margin-bottom:1rem;">
+    <h3>Search Volunteers</h3>
+    <div class="toolbar">
+      <input id="searchInput" placeholder="Search by name or ID...">
+      <select id="searchType">
+        <option value="name">By Name</option>
+        <option value="id">By ID</option>
+        <option value="shelter">By Shelter ID</option>
+        <option value="status">By Status</option>
+      </select>
+      <button class="btn btn-primary" onclick="handleSearch()">Search</button>
+      <button class="btn btn-soft"    onclick="clearSearch()">Clear</button>
+    </div>
+  </div>
+
+  <!-- STATUS MSG -->
+  <div id="statusMsg" class="status-message"></div>
+
+  <!-- STATS -->
+  <div class="cards-grid">
+    <div class="card">
+      <p class="stat-title">Total Volunteers</p>
+      <p class="stat-value" id="count">0</p>
+    </div>
+    <div class="card">
+      <p class="stat-title">Active</p>
+      <p class="stat-value" id="activeCount">0</p>
+    </div>
+    <div class="card">
+      <p class="stat-title">Unassigned</p>
+      <p class="stat-value" id="unassignedCount">0</p>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Phone</th>
+          <th>Email</th>
+          <th>Emergency Contact</th>
+          <th>Hours</th>
+          <th>Status</th>
+          <th>Shelter</th>
+          <th>Organization</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <tr><td colspan="10" class="empty-row">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+</div>
+
+<script>
+const API   = "http://localhost:3000";
+const token = localStorage.getItem("token");
+const role  = localStorage.getItem("role");
+
+if (!token || role !== "admin") {
+  alert("Access denied.");
+  window.location.href = "login.html";
+}
+
+document.getElementById("info").innerText = "Admin: " + (localStorage.getItem("username") || "");
+
+let allVolunteers = [];
+
+// ── Fetch Helper ───────────────────────────────────────────
+async function apiFetch(url, options = {}) {
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token,
+      ...(options.headers || {})
+    }
+  });
+  return await res.json();
+}
+
+// ── Status Message ─────────────────────────────────────────
+function setStatus(msg, type = "success") {
+  const el = document.getElementById("statusMsg");
+  el.textContent = msg;
+  el.className = `status-message show ${type}`;
+  setTimeout(() => { el.className = "status-message"; }, 4000);
+}
+
+// ── CRUD Helpers ───────────────────────────────────────────
+function showCrud(title, html) {
+  document.getElementById("crudTitle").innerText = title;
+  document.getElementById("crudForm").innerHTML  = html;
+  document.getElementById("crudSection").classList.add("show");
+  document.getElementById("crudSection").scrollIntoView({ behavior: "smooth" });
+}
+
+function hideCrud() {
+  document.getElementById("crudSection").classList.remove("show");
+}
+
+function toggleSearch() {
+  const box = document.getElementById("searchBox");
+  box.style.display = box.style.display === "none" ? "block" : "none";
+}
+
+// ── Load All Volunteers ────────────────────────────────────
+async function loadVolunteers() {
+  hideCrud();
+  document.getElementById("searchBox").style.display = "none";
+
+  const data = await apiFetch(`${API}/api/volunteers`);
+  allVolunteers = Array.isArray(data) ? data : [];
+
+  document.getElementById("count").innerText =
+    allVolunteers.length;
+  document.getElementById("activeCount").innerText =
+    allVolunteers.filter(v => v.STATUS === 'ACTIVE').length;
+  document.getElementById("unassignedCount").innerText =
+    allVolunteers.filter(v => !v.SHELTER_ID).length;
+
+  renderVolunteers(allVolunteers);
+}
+
+function renderVolunteers(data) {
+  const body = document.getElementById("tableBody");
+  document.getElementById("count").innerText = data.length;
+
+  if (!data.length) {
+    body.innerHTML = `<tr><td colspan="10" class="empty-row">No volunteers found</td></tr>`;
+    return;
+  }
+
+  body.innerHTML = data.map(v => `
+    <tr>
+      <td>${v.VOLUNTEER_ID}</td>
+      <td>${v.NAME              ?? '-'}</td>
+      <td>${v.PHONE             ?? '-'}</td>
+      <td>${v.EMAIL             ?? '-'}</td>
+      <td>${v.EMERGENCY_CONTACT ?? '-'}</td>
+      <td>${v.HOURS             ?? 0}</td>
+      <td><span class="status ${v.STATUS === 'ACTIVE' ? 'ok' : 'warn'}">${v.STATUS ?? '-'}</span></td>
+      <td>${v.SHELTER_NAME ?? v.SHELTER_ID ?? 'Unassigned'}</td>
+      <td>${v.ORG_NAME ?? v.ORG_ID ?? '-'}</td>
+      <td>
+        <button class="btn btn-primary" onclick="showEditVolunteer(
+          ${v.VOLUNTEER_ID},
+          '${(v.NAME             ?? '').replace(/'/g,"\\'")}',
+          '${(v.PHONE            ?? '').replace(/'/g,"\\'")}',
+          '${(v.EMAIL            ?? '').replace(/'/g,"\\'")}',
+          '${(v.EMERGENCY_CONTACT?? '').replace(/'/g,"\\'")}',
+          ${v.SHELTER_ID ?? 'null'},
+          ${v.ORG_ID     ?? 'null'},
+          ${v.HOURS      ?? 0},
+          '${v.STATUS    ?? 'ACTIVE'}'
+        )"><i class="fa fa-pen"></i> Edit</button>
+        <button class="btn btn-soft" onclick="showReassignById(${v.VOLUNTEER_ID}, ${v.SHELTER_ID ?? 'null'})">
+          <i class="fa fa-arrows-rotate"></i> Reassign
+        </button>
+        <button class="btn btn-danger" onclick="deleteVolunteer(${v.VOLUNTEER_ID})">
+          <i class="fa fa-trash"></i> Delete
+        </button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// ── Shared form HTML builder ───────────────────────────────
+function volunteerFormHTML(prefix, v = {}) {
+  return `
+    <div class="input-group">
+      <label>Name *</label>
+      <input id="${prefix}_name" value="${v.name ?? ''}" placeholder="Full Name" required>
+    </div>
+    <div class="input-group">
+      <label>Phone *</label>
+      <input id="${prefix}_phone" value="${v.phone ?? ''}" placeholder="Phone Number" required>
+    </div>
+    <div class="input-group">
+      <label>Email *</label>
+      <input id="${prefix}_email" value="${v.email ?? ''}" placeholder="Email Address" type="email" required>
+    </div>
+    <div class="input-group">
+      <label>Emergency Contact *</label>
+      <input id="${prefix}_emergency" value="${v.emergency ?? ''}" placeholder="Emergency Contact Number" required>
+    </div>
+    <div class="input-group">
+      <label>Org ID *</label>
+      <input id="${prefix}_org" value="${v.org_id ?? ''}" placeholder="Organization ID" type="number" required>
+    </div>
+    <div class="input-group">
+      <label>Shelter ID</label>
+      <input id="${prefix}_shelter" value="${v.shelter_id ?? ''}" placeholder="Shelter ID (optional)" type="number">
+    </div>
+    <div class="input-group">
+      <label>Hours</label>
+      <input id="${prefix}_hours" value="${v.hours ?? 0}" placeholder="Total Hours" type="number" min="0">
+    </div>
+    <div class="input-group">
+      <label>Status *</label>
+      <select id="${prefix}_status">
+        <option value="ACTIVE"    ${v.status === 'ACTIVE'    ? 'selected' : ''}>ACTIVE</option>
+        <option value="INACTIVE"  ${v.status === 'INACTIVE'  ? 'selected' : ''}>INACTIVE</option>
+        <option value="ON_LEAVE"  ${v.status === 'ON_LEAVE'  ? 'selected' : ''}>ON_LEAVE</option>
+      </select>
+    </div>`;
+}
+
+// ── Add Volunteer ──────────────────────────────────────────
+function showAddVolunteer() {
+  showCrud("Add New Volunteer",
+    volunteerFormHTML("av") + `
+    <div style="display:flex;gap:0.5rem;align-self:end;">
+      <button class="btn btn-primary" onclick="submitAddVolunteer()"><i class="fa fa-check"></i> Save</button>
+      <button class="btn btn-soft"    onclick="hideCrud()">Cancel</button>
+    </div>`
+  );
+}
+
+async function submitAddVolunteer() {
+  const name      = document.getElementById("av_name").value.trim();
+  const phone     = document.getElementById("av_phone").value.trim();
+  const email     = document.getElementById("av_email").value.trim();
+  const emergency = document.getElementById("av_emergency").value.trim();
+  const org_id    = document.getElementById("av_org").value.trim();
+  const shelter   = document.getElementById("av_shelter").value.trim();
+  const hours     = document.getElementById("av_hours").value.trim();
+  const status    = document.getElementById("av_status").value;
+
+  if (!name || !phone || !email || !emergency || !org_id) {
+    return setStatus("Name, Phone, Email, Emergency Contact and Org ID are required", "error");
+  }
+
+  // Field names must match what controller destructures
+  const d = await apiFetch(`${API}/api/volunteers`, {
+    method: "POST",
+    body: JSON.stringify({
+      Name:              name,
+      Phone:             phone,
+      Email:             email,
+      emergency_contact: emergency,
+      org_id:            org_id,
+      shelter_id:        shelter || null,
+      hours:             hours   || 0,
+      status:            status
+    })
+  });
+
+  if (d.error) return setStatus(d.error, "error");
+  setStatus(d.message || "Volunteer added successfully", "success");
+  hideCrud();
+  loadVolunteers();
+}
+
+// ── Edit Volunteer ─────────────────────────────────────────
+function showEditVolunteer(id, name, phone, email, emergency, shelter_id, org_id, hours, status) {
+  showCrud("Edit Volunteer #" + id,
+    volunteerFormHTML("ev", { name, phone, email, emergency, shelter_id, org_id, hours, status }) + `
+    <div style="display:flex;gap:0.5rem;align-self:end;">
+      <button class="btn btn-primary" onclick="submitEditVolunteer(${id})"><i class="fa fa-check"></i> Update</button>
+      <button class="btn btn-soft"    onclick="hideCrud()">Cancel</button>
+    </div>`
+  );
+}
+
+async function submitEditVolunteer(id) {
+  const name      = document.getElementById("ev_name").value.trim();
+  const phone     = document.getElementById("ev_phone").value.trim();
+  const email     = document.getElementById("ev_email").value.trim();
+  const emergency = document.getElementById("ev_emergency").value.trim();
+  const org_id    = document.getElementById("ev_org").value.trim();
+  const shelter   = document.getElementById("ev_shelter").value.trim();
+  const hours     = document.getElementById("ev_hours").value.trim();
+  const status    = document.getElementById("ev_status").value;
+
+  if (!name || !phone || !email || !emergency || !org_id) {
+    return setStatus("Name, Phone, Email, Emergency Contact and Org ID are required", "error");
+  }
+
+  // Field names must match what controller destructures
+  const d = await apiFetch(`${API}/api/volunteers/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({
+      Name:              name,
+      Phone:             phone,
+      Email:             email,
+      emergency_contact: emergency,
+      org_id:            org_id,
+      shelter_id:        shelter || null,
+      hours:             hours   || 0,
+      status:            status
+    })
+  });
+
+  if (d.error) return setStatus(d.error, "error");
+  setStatus(d.message || "Volunteer updated successfully", "success");
+  hideCrud();
+  loadVolunteers();
+}
+
+// ── Reassign (from action bar – enter volunteer ID manually) ──
+function showReassignForm() {
+  showCrud("Reassign Volunteer to Shelter", `
+    <div class="input-group">
+      <label>Volunteer ID *</label>
+      <input id="rv_vid" placeholder="Volunteer ID" type="number" required>
+    </div>
+    <div class="input-group">
+      <label>New Shelter ID *</label>
+      <input id="rv_sid" placeholder="New Shelter ID" type="number" required>
+    </div>
+    <div style="display:flex;gap:0.5rem;align-self:end;">
+      <button class="btn btn-primary" onclick="submitReassign()"><i class="fa fa-arrows-rotate"></i> Reassign</button>
+      <button class="btn btn-soft"    onclick="hideCrud()">Cancel</button>
+    </div>
+  `);
+}
+
+async function submitReassign() {
+  const vid = document.getElementById("rv_vid").value.trim();
+  const sid = document.getElementById("rv_sid").value.trim();
+  if (!vid || !sid) return setStatus("Both Volunteer ID and Shelter ID are required", "error");
+
+  const d = await apiFetch(`${API}/api/volunteers/${vid}`, {
+    method: "PUT",
+    body: JSON.stringify({ shelter_id: Number(sid) })
+  });
+
+  if (d.error) return setStatus(d.error, "error");
+  setStatus(d.message || "Reassigned successfully", "success");
+  hideCrud();
+  loadVolunteers();
+}
+
+// ── Reassign (from table button – volunteer ID pre-filled) ──
+function showReassignById(vid, curShelter) {
+  showCrud("Reassign Volunteer #" + vid, `
+    <p style="color:#64748b;font-size:0.85rem;margin:0 0 0.5rem;">Current Shelter: ${curShelter ?? 'Unassigned'}</p>
+    <div class="input-group">
+      <label>New Shelter ID *</label>
+      <input id="rv_sid2" placeholder="New Shelter ID" type="number" required>
+    </div>
+    <div style="display:flex;gap:0.5rem;align-self:end;">
+      <button class="btn btn-primary" onclick="submitReassignById(${vid})"><i class="fa fa-arrows-rotate"></i> Reassign</button>
+      <button class="btn btn-soft"    onclick="hideCrud()">Cancel</button>
+    </div>
+  `);
+}
+
+async function submitReassignById(vid) {
+  const sid = document.getElementById("rv_sid2").value.trim();
+  if (!sid) return setStatus("Shelter ID is required", "error");
+
+  const d = await apiFetch(`${API}/api/volunteers/${vid}`, {
+    method: "PUT",
+    body: JSON.stringify({ shelter_id: Number(sid) })
+  });
+
+  if (d.error) return setStatus(d.error, "error");
+  setStatus(d.message || "Reassigned successfully", "success");
+  hideCrud();
+  loadVolunteers();
+}
+
+// ── Delete ─────────────────────────────────────────────────
+async function deleteVolunteer(id) {
+  if (!confirm(`Delete Volunteer #${id}? This cannot be undone.`)) return;
+
+  const d = await apiFetch(`${API}/api/volunteers/${id}`, { method: "DELETE" });
+  if (d.error) return setStatus(d.error, "error");
+  setStatus(d.message || "Volunteer deleted", "success");
+  loadVolunteers();
+}
+
+// ── Search ─────────────────────────────────────────────────
+async function handleSearch() {
+  const term = document.getElementById("searchInput").value.trim();
+  const type = document.getElementById("searchType").value;
+  if (!term) return setStatus("Enter a search term", "error");
+
+  if (type === "id") {
+    const d = await apiFetch(`${API}/api/volunteers/${term}`);
+    if (d.error) return setStatus(d.error, "error");
+    renderVolunteers([d]);
+    return;
+  }
+
+  const data = await apiFetch(`${API}/api/volunteers`);
+  if (!Array.isArray(data)) return setStatus("Failed to fetch volunteers", "error");
+
+  const t = term.toLowerCase();
+  const filtered = data.filter(v => {
+    if (type === "name")    return v.NAME?.toLowerCase().includes(t);
+    if (type === "shelter") return String(v.SHELTER_ID) === term;
+    if (type === "status")  return v.STATUS?.toLowerCase().includes(t);
+    return false;
+  });
+
+  renderVolunteers(filtered);
+}
+
+function clearSearch() {
+  document.getElementById("searchInput").value = "";
+  loadVolunteers();
+}
+
+// ── Logout ─────────────────────────────────────────────────
+function logout() {
+  localStorage.clear();
+  window.location.href = "login.html";
+}
+
+// ── Init ───────────────────────────────────────────────────
+loadVolunteers();
+</script>
+</body>
+</html>

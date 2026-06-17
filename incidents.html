@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Incidents – Admin</title>
+<link rel="stylesheet" href="donation.css">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+<style>
+  .crud-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.6rem;}
+  .action-bar{display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem;padding:0.8rem;background:#fff;border:1px solid #dbe3ef;border-radius:14px;}
+  .status-message{padding:0.6rem 1rem;border-radius:8px;margin-bottom:0.8rem;display:none;font-size:0.9rem;}
+  .status-message.show{display:block;}
+  .status-message.success{background:#dcfce7;color:#166534;border:1px solid #bbf7d0;}
+  .status-message.error{background:#fee2e2;color:#991b1b;border:1px solid #fecaca;}
+  .status-message.info{background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe;}
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;justify-content:center;align-items:center;}
+  .modal-overlay.show{display:flex;}
+  .modal-card{background:#fff;border-radius:14px;padding:1.5rem;width:100%;max-width:620px;box-shadow:0 8px 32px rgba(0,0,0,0.18);max-height:90vh;overflow-y:auto;}
+  .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;border-bottom:2px solid #60a5fa;padding-bottom:0.5rem;}
+  .modal-head h3{margin:0;color:#1e3a8a;}
+  .modal-close{background:none;border:none;font-size:1.4rem;cursor:pointer;color:#6b7280;line-height:1;}
+  .modal-actions{display:flex;gap:0.5rem;margin-top:1rem;justify-content:flex-end;}
+  .input-group textarea{width:100%;padding:0.5rem 0.75rem;border:1px solid #d1d5db;border-radius:8px;font-size:0.9rem;resize:vertical;min-height:80px;font-family:inherit;}
+  .badge-low{background:#dcfce7;color:#166534;padding:2px 8px;border-radius:99px;font-size:0.78rem;font-weight:600;}
+  .badge-medium{background:#fef9c3;color:#854d0e;padding:2px 8px;border-radius:99px;font-size:0.78rem;font-weight:600;}
+  .badge-high{background:#fed7aa;color:#9a3412;padding:2px 8px;border-radius:99px;font-size:0.78rem;font-weight:600;}
+  .badge-critical{background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:99px;font-size:0.78rem;font-weight:600;}
+</style>
+</head>
+<body>
+<div class="app">
+
+<aside class="sidebar">
+  <div class="brand"><i class="fa-solid fa-shield-halved"></i><h1>Admin</h1></div>
+  <div class="menu">
+    <a href="adminView.html"><i class="fa fa-chart-line"></i> Dashboard</a>
+    <a href="refugees.html"><i class="fa fa-users"></i> Refugees</a>
+    <a href="doctor.html"><i class="fa fa-user-doctor"></i> Doctors</a>
+    <a href="volunteer.html"><i class="fa fa-hands-helping"></i> Volunteers</a>
+    <a href="coordinator.html"><i class="fa fa-user-tie"></i> Coordinators</a>
+    <a href="organizations.html"><i class="fa fa-sitemap"></i> Organizations</a>
+    <a href="shelter.html"><i class="fa fa-building"></i> Shelters</a>
+    <a href="camp.html"><i class="fa fa-campground"></i> Camps</a>
+    <a href="inventory.html"><i class="fa fa-warehouse"></i> Inventory</a>
+    <a href="aid.html"><i class="fa fa-box"></i> Aid Distribution</a>
+    <a href="donations-show.html"><i class="fa fa-hand-holding-dollar"></i> Donations</a>
+    <a href="medical.html"><i class="fa fa-file-medical"></i> Medical Records</a>
+    <a class="active"><i class="fa fa-exclamation-triangle"></i> Incidents</a>
+    <a href="critical.html"><i class="fa fa-heart-pulse"></i> Critical Patients</a>
+    <a onclick="logout()"><i class="fa fa-right-from-bracket"></i> Logout</a>
+  </div>
+</aside>
+
+<main class="content">
+
+  <div class="topbar">
+    <h3>Incident Reports</h3>
+    <div class="profile">
+      <div class="avatar">A</div>
+      <span id="info">Admin</span>
+    </div>
+  </div>
+
+  <!-- ACTION BAR -->
+  <div class="action-bar">
+    <button class="btn btn-primary" onclick="openModal()"><i class="fa fa-plus"></i> Add Incident</button>
+    <button class="btn btn-soft"    onclick="toggleSearch()"><i class="fa fa-magnifying-glass"></i> Search</button>
+    <button class="btn btn-soft"    onclick="loadIncidents()"><i class="fa fa-refresh"></i> Refresh</button>
+  </div>
+
+  <!-- SEARCH -->
+  <div class="card" id="searchBox" style="display:none;margin-bottom:1rem;">
+    <h3>Search Incidents</h3>
+    <div class="toolbar">
+      <input id="searchInput" placeholder="Search...">
+      <select id="searchType">
+        <option value="shelter">By Shelter ID</option>
+        <option value="refugee">By Refugee ID</option>
+        <option value="volunteer">By Volunteer ID</option>
+        <option value="severity">By Severity (LOW/MEDIUM/HIGH/CRITICAL)</option>
+      </select>
+      <button class="btn btn-primary" onclick="searchIncidents()">Search</button>
+      <button class="btn btn-soft"    onclick="clearSearch()">Clear</button>
+    </div>
+  </div>
+
+  <!-- STATUS -->
+  <div id="statusMsg" class="status-message"></div>
+
+  <!-- STATS -->
+  <div class="cards-grid">
+    <div class="card">
+      <p class="stat-title">Total Incidents</p>
+      <p class="stat-value" id="totalIncidents">0</p>
+    </div>
+    <div class="card">
+      <p class="stat-title">Critical</p>
+      <p class="stat-value" id="criticalCount">0</p>
+    </div>
+    <div class="card">
+      <p class="stat-title">High Severity</p>
+      <p class="stat-value" id="highCount">0</p>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Incident ID</th>
+          <th>Shelter ID</th>
+          <th>Refugee ID</th>
+          <th>Volunteer ID</th>
+          <th>Date Reported</th>
+          <th>Severity</th>
+          <th>Description</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <tr><td colspan="8" class="empty-row">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+</div>
+
+<!-- MODAL -->
+<div id="incModal" class="modal-overlay">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3 id="modalTitle">Add Incident Report</h3>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <form id="incForm" onsubmit="submitForm(event)">
+      <input type="hidden" id="incidentId">
+      <div class="crud-form">
+        <div class="input-group">
+          <label>Shelter ID</label>
+          <input id="shelterId" type="number" min="1" placeholder="Shelter ID">
+        </div>
+        <div class="input-group">
+          <label>Refugee ID</label>
+          <input id="refugeeId" type="number" min="1" placeholder="Refugee ID">
+        </div>
+        <div class="input-group">
+          <label>Volunteer ID</label>
+          <input id="volunteerId" type="number" min="1" placeholder="Volunteer ID">
+        </div>
+        <div class="input-group">
+          <label>Date Reported</label>
+          <input id="dateReported" type="date">
+        </div>
+        <div class="input-group">
+          <label>Severity *</label>
+          <select id="severity" required>
+            <option value="">Select Severity...</option>
+            <option value="LOW">LOW</option>
+            <option value="MEDIUM">MEDIUM</option>
+            <option value="HIGH">HIGH</option>
+            <option value="CRITICAL">CRITICAL</option>
+          </select>
+        </div>
+      </div>
+      <div class="input-group" style="margin-top:0.6rem;">
+        <label>Description</label>
+        <textarea id="description" placeholder="Describe the incident..."></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-soft" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary"><i class="fa fa-check"></i> Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const API   = "http://localhost:3000";
+const token = localStorage.getItem("token");
+const role  = localStorage.getItem("role");
+
+if (!token || role !== "admin") { alert("Access denied."); window.location.href = "login.html"; }
+document.getElementById("info").innerText = "Admin: " + (localStorage.getItem("username") || "");
+
+const apiBase   = `${API}/api/incidents`;
+const tableBody = document.getElementById("tableBody");
+let currentRows = [];
+
+async function apiFetch(url, options = {}) {
+  const res = await fetch(url + (url.includes('?') ? '&' : '?') + `_ts=${Date.now()}`, {
+    ...options,
+    headers: { "Content-Type":"application/json", "Authorization":"Bearer "+token, ...(options.headers||{}) },
+    cache: "no-store"
+  });
+  const text = await res.text();
+  try { return JSON.parse(text); } catch { throw new Error("Invalid server response"); }
+}
+
+function setStatus(msg, type="info") {
+  const el = document.getElementById("statusMsg");
+  el.textContent = msg; el.className = `status-message show ${type}`;
+  setTimeout(() => { el.className = "status-message"; }, 4000);
+}
+
+function normalize(rows) {
+  return rows.map(r => { const o={}; Object.keys(r).forEach(k => o[k.toUpperCase()]=r[k]); return o; });
+}
+
+function formatDate(val) {
+  if (!val) return '-';
+  return new Date(val).toLocaleDateString('en-GB');
+}
+
+function severityBadge(sev) {
+  const map = { LOW:'badge-low', MEDIUM:'badge-medium', HIGH:'badge-high', CRITICAL:'badge-critical' };
+  return `<span class="${map[sev] || 'badge-low'}">${sev || '-'}</span>`;
+}
+
+function renderRows(rows) {
+  document.getElementById("totalIncidents").innerText = rows.length;
+  document.getElementById("criticalCount").innerText  = rows.filter(r => r.SEVERITY === 'CRITICAL').length;
+  document.getElementById("highCount").innerText      = rows.filter(r => r.SEVERITY === 'HIGH').length;
+
+  if (!rows.length) { tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">No incidents found.</td></tr>`; return; }
+
+  tableBody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${r.INCIDENT_ID    ?? '-'}</td>
+      <td>${r.SHELTER_ID     ?? '-'}</td>
+      <td>${r.REFUGEE_ID     ?? '-'}</td>
+      <td>${r.VOLUNTEER_ID   ?? '-'}</td>
+      <td>${formatDate(r.DATE_REPORTED)}</td>
+      <td>${severityBadge(r.SEVERITY)}</td>
+      <td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${r.DESCRIPTION ?? ''}">${r.DESCRIPTION ?? '-'}</td>
+      <td>
+        <button class="btn btn-primary edit-btn"   data-id="${r.INCIDENT_ID}">Edit</button>
+        <button class="btn btn-danger  delete-btn" data-id="${r.INCIDENT_ID}">Delete</button>
+      </td>
+    </tr>`).join('');
+
+  tableBody.querySelectorAll(".edit-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const row = currentRows.find(r => Number(r.INCIDENT_ID) === Number(btn.dataset.id));
+      if (row) openModal(row);
+    });
+  });
+  tableBody.querySelectorAll(".delete-btn").forEach(btn => {
+    btn.addEventListener("click", () => deleteIncident(btn.dataset.id));
+  });
+}
+
+async function loadIncidents() {
+  document.getElementById("searchBox").style.display = "none";
+  try {
+    const data = await apiFetch(apiBase);
+    if (!Array.isArray(data)) throw new Error(data.error || "Failed to load incidents");
+    currentRows = normalize(data);
+    renderRows(currentRows);
+  } catch(e) { setStatus(e.message, "error"); tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">${e.message}</td></tr>`; }
+}
+
+function openModal(editRow) {
+  document.getElementById("incForm").reset();
+  document.getElementById("incidentId").value = "";
+
+  if (editRow) {
+    document.getElementById("modalTitle").innerText   = "Edit Incident #" + editRow.INCIDENT_ID;
+    document.getElementById("incidentId").value       = editRow.INCIDENT_ID;
+    document.getElementById("shelterId").value        = editRow.SHELTER_ID    ?? "";
+    document.getElementById("refugeeId").value        = editRow.REFUGEE_ID    ?? "";
+    document.getElementById("volunteerId").value      = editRow.VOLUNTEER_ID  ?? "";
+    document.getElementById("dateReported").value     = editRow.DATE_REPORTED ? new Date(editRow.DATE_REPORTED).toISOString().split('T')[0] : "";
+    document.getElementById("severity").value         = editRow.SEVERITY      ?? "";
+    document.getElementById("description").value      = editRow.DESCRIPTION   ?? "";
+  } else {
+    document.getElementById("modalTitle").innerText = "Add Incident Report";
+  }
+  document.getElementById("incModal").classList.add("show");
+}
+
+function closeModal() { document.getElementById("incModal").classList.remove("show"); }
+document.getElementById("incModal").addEventListener("click", e => { if (e.target === document.getElementById("incModal")) closeModal(); });
+
+async function submitForm(e) {
+  e.preventDefault();
+  const id     = document.getElementById("incidentId").value;
+  const isEdit = Boolean(id);
+  const payload = {
+    shelter_id:    document.getElementById("shelterId").value   ? Number(document.getElementById("shelterId").value)   : null,
+    refugee_id:    document.getElementById("refugeeId").value   ? Number(document.getElementById("refugeeId").value)   : null,
+    volunteer_id:  document.getElementById("volunteerId").value ? Number(document.getElementById("volunteerId").value) : null,
+    date_reported: document.getElementById("dateReported").value || null,
+    severity:      document.getElementById("severity").value    || null,
+    description:   document.getElementById("description").value.trim() || null
+  };
+  try {
+    const d = await apiFetch(isEdit ? `${apiBase}/${id}` : apiBase, { method: isEdit ? "PUT" : "POST", body: JSON.stringify(payload) });
+    if (d.error) throw new Error(d.error);
+    setStatus(d.message || (isEdit ? "Incident updated" : "Incident added"), "success");
+    closeModal(); loadIncidents();
+  } catch(err) { setStatus(err.message || "Save failed", "error"); }
+}
+
+async function deleteIncident(id) {
+  if (!confirm(`Delete Incident Report #${id}?`)) return;
+  try {
+    const d = await apiFetch(`${apiBase}/${id}`, { method: "DELETE" });
+    if (d.error) throw new Error(d.error);
+    setStatus(d.message || "Incident deleted", "success"); loadIncidents();
+  } catch(err) { setStatus(err.message || "Delete failed", "error"); }
+}
+
+function toggleSearch() {
+  const box = document.getElementById("searchBox");
+  box.style.display = box.style.display === "none" ? "block" : "none";
+}
+
+function searchIncidents() {
+  const term = document.getElementById("searchInput").value.trim();
+  const type = document.getElementById("searchType").value;
+  if (!term) return loadIncidents();
+
+  const filtered = currentRows.filter(r => {
+    if (type === "shelter")   return String(r.SHELTER_ID)  === term;
+    if (type === "refugee")   return String(r.REFUGEE_ID)  === term;
+    if (type === "volunteer") return String(r.VOLUNTEER_ID) === term;
+    if (type === "severity")  return r.SEVERITY?.toUpperCase() === term.toUpperCase();
+    return false;
+  });
+  renderRows(filtered);
+}
+
+function clearSearch() { document.getElementById("searchInput").value = ""; loadIncidents(); }
+function logout() { localStorage.clear(); window.location.href = "login.html"; }
+
+loadIncidents();
+</script>
+</body>
+</html>

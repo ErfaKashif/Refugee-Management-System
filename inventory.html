@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Inventory – Admin</title>
+<link rel="stylesheet" href="donation.css">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+<style>
+  .crud-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.6rem;}
+  .action-bar{display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem;padding:0.8rem;background:#fff;border:1px solid #dbe3ef;border-radius:14px;}
+  .status-message{padding:0.6rem 1rem;border-radius:8px;margin-bottom:0.8rem;display:none;font-size:0.9rem;}
+  .status-message.show{display:block;}
+  .status-message.success{background:#dcfce7;color:#166534;border:1px solid #bbf7d0;}
+  .status-message.error{background:#fee2e2;color:#991b1b;border:1px solid #fecaca;}
+  .status-message.info{background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe;}
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;justify-content:center;align-items:center;}
+  .modal-overlay.show{display:flex;}
+  .modal-card{background:#fff;border-radius:14px;padding:1.5rem;width:100%;max-width:620px;box-shadow:0 8px 32px rgba(0,0,0,0.18);max-height:90vh;overflow-y:auto;}
+  .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;border-bottom:2px solid #60a5fa;padding-bottom:0.5rem;}
+  .modal-head h3{margin:0;color:#1e3a8a;}
+  .modal-close{background:none;border:none;font-size:1.4rem;cursor:pointer;color:#6b7280;line-height:1;}
+  .modal-actions{display:flex;gap:0.5rem;margin-top:1rem;justify-content:flex-end;}
+  .badge-food{background:#fef9c3;color:#854d0e;padding:2px 8px;border-radius:99px;font-size:0.78rem;font-weight:600;}
+  .badge-medicine{background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:99px;font-size:0.78rem;font-weight:600;}
+  .badge-clothes{background:#f3e8ff;color:#6b21a8;padding:2px 8px;border-radius:99px;font-size:0.78rem;font-weight:600;}
+  .badge-other{background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:99px;font-size:0.78rem;font-weight:600;}
+  .badge-low{background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:99px;font-size:0.78rem;font-weight:600;}
+</style>
+</head>
+<body>
+<div class="app">
+
+<aside class="sidebar">
+  <div class="brand"><i class="fa-solid fa-shield-halved"></i><h1>Admin</h1></div>
+  <div class="menu">
+    <a href="adminView.html"><i class="fa fa-chart-line"></i> Dashboard</a>
+    <a href="refugees.html"><i class="fa fa-users"></i> Refugees</a>
+    <a href="doctor.html"><i class="fa fa-user-doctor"></i> Doctors</a>
+    <a href="volunteer.html"><i class="fa fa-hands-helping"></i> Volunteers</a>
+    <a href="coordinator.html"><i class="fa fa-user-tie"></i> Coordinators</a>
+    <a href="organizations.html"><i class="fa fa-sitemap"></i> Organizations</a>
+    <a href="shelter.html"><i class="fa fa-building"></i> Shelters</a>
+    <a href="camp.html"><i class="fa fa-campground"></i> Camps</a>
+    <a class="active"><i class="fa fa-warehouse"></i> Inventory</a>
+    <a href="aid.html"><i class="fa fa-box"></i> Aid Distribution</a>
+    <a href="donations-show.html"><i class="fa fa-hand-holding-dollar"></i> Donations</a>
+    <a href="medical.html"><i class="fa fa-file-medical"></i> Medical Records</a>
+    <a href="incidents.html"><i class="fa fa-exclamation-triangle"></i> Incidents</a>
+    <a href="critical.html"><i class="fa fa-heart-pulse"></i> Critical Patients</a>
+    <a onclick="logout()"><i class="fa fa-right-from-bracket"></i> Logout</a>
+  </div>
+</aside>
+
+<main class="content">
+
+  <div class="topbar">
+    <h3>Inventory</h3>
+    <div class="profile">
+      <div class="avatar">A</div>
+      <span id="info">Admin</span>
+    </div>
+  </div>
+
+  <!-- ACTION BAR -->
+  <div class="action-bar">
+    <button class="btn btn-primary" onclick="openModal()"><i class="fa fa-plus"></i> Add Item</button>
+    <button class="btn btn-soft"    onclick="toggleSearch()"><i class="fa fa-magnifying-glass"></i> Search</button>
+    <button class="btn btn-soft"    onclick="loadInventory()"><i class="fa fa-refresh"></i> Refresh</button>
+  </div>
+
+  <!-- SEARCH -->
+  <div class="card" id="searchBox" style="display:none;margin-bottom:1rem;">
+    <h3>Search Inventory</h3>
+    <div class="toolbar">
+      <input id="searchInput" placeholder="Search...">
+      <select id="searchType">
+        <option value="name">By Name</option>
+        <option value="category">By Category (FOOD/MEDICINE/CLOTHES/OTHER)</option>
+        <option value="shelter">By Shelter ID</option>
+        <option value="low">Low Stock Only (type anything)</option>
+      </select>
+      <button class="btn btn-primary" onclick="searchInventory()">Search</button>
+      <button class="btn btn-soft"    onclick="clearSearch()">Clear</button>
+    </div>
+  </div>
+
+  <!-- STATUS -->
+  <div id="statusMsg" class="status-message"></div>
+
+  <!-- STATS -->
+  <div class="cards-grid">
+    <div class="card">
+      <p class="stat-title">Total Items</p>
+      <p class="stat-value" id="totalItems">0</p>
+    </div>
+    <div class="card">
+      <p class="stat-title">Low Stock Alerts</p>
+      <p class="stat-value" id="lowStock">0</p>
+    </div>
+    <div class="card">
+      <p class="stat-title">Total Quantity</p>
+      <p class="stat-value" id="totalQty">0</p>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Product ID</th>
+          <th>Product Name</th>
+          <th>Category</th>
+          <th>Shelter ID</th>
+          <th>Quantity</th>
+          <th>Low Alert</th>
+          <th>In Date</th>
+          <th>Exp Date</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <tr><td colspan="9" class="empty-row">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+</div>
+
+<!-- MODAL -->
+<div id="invModal" class="modal-overlay">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3 id="modalTitle">Add Inventory Item</h3>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <form id="invForm" onsubmit="submitForm(event)">
+      <input type="hidden" id="productId">
+      <div class="crud-form">
+        <div class="input-group">
+          <label>Product Name *</label>
+          <input id="productName" placeholder="Product Name" required>
+        </div>
+        <div class="input-group">
+          <label>Category</label>
+          <select id="category">
+            <option value="">Select Category...</option>
+            <option value="FOOD">FOOD</option>
+            <option value="MEDICINE">MEDICINE</option>
+            <option value="CLOTHES">CLOTHES</option>
+            <option value="OTHER">OTHER</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <label>Shelter ID</label>
+          <input id="shelterId" type="number" min="1" placeholder="Shelter ID">
+        </div>
+        <div class="input-group">
+          <label>Quantity</label>
+          <input id="quantity" type="number" min="0" value="0">
+        </div>
+        <div class="input-group">
+          <label>Low Alert Threshold</label>
+          <input id="lowAlert" type="number" min="0" value="10">
+        </div>
+        <div class="input-group">
+          <label>In Date</label>
+          <input id="inDate" type="date">
+        </div>
+        <div class="input-group">
+          <label>Expiry Date</label>
+          <input id="expDate" type="date">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-soft" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary"><i class="fa fa-check"></i> Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const API   = "http://localhost:3000";
+const token = localStorage.getItem("token");
+const role  = localStorage.getItem("role");
+
+if (!token || role !== "admin") { alert("Access denied."); window.location.href = "login.html"; }
+document.getElementById("info").innerText = "Admin: " + (localStorage.getItem("username") || "");
+
+const apiBase   = `${API}/api/inventory`;
+const tableBody = document.getElementById("tableBody");
+let currentRows = [];
+
+async function apiFetch(url, options = {}) {
+  const res = await fetch(url + (url.includes('?') ? '&' : '?') + `_ts=${Date.now()}`, {
+    ...options,
+    headers: { "Content-Type":"application/json", "Authorization":"Bearer "+token, ...(options.headers||{}) },
+    cache: "no-store"
+  });
+  const text = await res.text();
+  try { return JSON.parse(text); } catch { throw new Error("Invalid server response"); }
+}
+
+function setStatus(msg, type="info") {
+  const el = document.getElementById("statusMsg");
+  el.textContent = msg; el.className = `status-message show ${type}`;
+  setTimeout(() => { el.className = "status-message"; }, 4000);
+}
+
+function normalize(rows) {
+  return rows.map(r => { const o={}; Object.keys(r).forEach(k => o[k.toUpperCase()]=r[k]); return o; });
+}
+
+function formatDate(val) {
+  if (!val) return '-';
+  return new Date(val).toLocaleDateString('en-GB');
+}
+
+function categoryBadge(cat) {
+  const map = { FOOD:'badge-food', MEDICINE:'badge-medicine', CLOTHES:'badge-clothes', OTHER:'badge-other' };
+  return `<span class="${map[cat] || 'badge-other'}">${cat || '-'}</span>`;
+}
+
+function qtyDisplay(qty, alert) {
+  if (qty <= alert) return `<span class="badge-low">${qty} ⚠</span>`;
+  return `<span style="font-weight:600;color:#166534">${qty}</span>`;
+}
+
+function renderRows(rows) {
+  document.getElementById("totalItems").innerText = rows.length;
+  document.getElementById("lowStock").innerText   = rows.filter(r => (r.QUANTITY||0) <= (r.LOW_ALERT||10)).length;
+  document.getElementById("totalQty").innerText   = rows.reduce((s,r) => s+(Number(r.QUANTITY)||0), 0).toLocaleString();
+
+  if (!rows.length) { tableBody.innerHTML = `<tr><td colspan="9" class="empty-row">No items found.</td></tr>`; return; }
+
+  tableBody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${r.PRODUCT_ID   ?? '-'}</td>
+      <td>${r.PRODUCT_NAME ?? '-'}</td>
+      <td>${categoryBadge(r.CATEGORY)}</td>
+      <td>${r.SHELTER_ID   ?? '-'}</td>
+      <td>${qtyDisplay(r.QUANTITY, r.LOW_ALERT)}</td>
+      <td>${r.LOW_ALERT    ?? 10}</td>
+      <td>${formatDate(r.IN_DATE)}</td>
+      <td>${formatDate(r.EXP_DATE)}</td>
+      <td>
+        <button class="btn btn-primary edit-btn"   data-id="${r.PRODUCT_ID}">Edit</button>
+        <button class="btn btn-danger  delete-btn" data-id="${r.PRODUCT_ID}">Delete</button>
+      </td>
+    </tr>`).join('');
+
+  tableBody.querySelectorAll(".edit-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const row = currentRows.find(r => Number(r.PRODUCT_ID) === Number(btn.dataset.id));
+      if (row) openModal(row);
+    });
+  });
+  tableBody.querySelectorAll(".delete-btn").forEach(btn => {
+    btn.addEventListener("click", () => deleteItem(btn.dataset.id));
+  });
+}
+
+async function loadInventory() {
+  document.getElementById("searchBox").style.display = "none";
+  try {
+    const data = await apiFetch(apiBase);
+    if (!Array.isArray(data)) throw new Error(data.error || "Failed to load inventory");
+    currentRows = normalize(data);
+    renderRows(currentRows);
+  } catch(e) { setStatus(e.message, "error"); tableBody.innerHTML = `<tr><td colspan="9" class="empty-row">${e.message}</td></tr>`; }
+}
+
+function openModal(editRow) {
+  document.getElementById("invForm").reset();
+  document.getElementById("productId").value = "";
+
+  if (editRow) {
+    document.getElementById("modalTitle").innerText  = "Edit Item #" + editRow.PRODUCT_ID;
+    document.getElementById("productId").value       = editRow.PRODUCT_ID;
+    document.getElementById("productName").value     = editRow.PRODUCT_NAME ?? "";
+    document.getElementById("category").value        = editRow.CATEGORY     ?? "";
+    document.getElementById("shelterId").value       = editRow.SHELTER_ID   ?? "";
+    document.getElementById("quantity").value        = editRow.QUANTITY     ?? 0;
+    document.getElementById("lowAlert").value        = editRow.LOW_ALERT    ?? 10;
+    document.getElementById("inDate").value          = editRow.IN_DATE  ? new Date(editRow.IN_DATE).toISOString().split('T')[0]  : "";
+    document.getElementById("expDate").value         = editRow.EXP_DATE ? new Date(editRow.EXP_DATE).toISOString().split('T')[0] : "";
+  } else {
+    document.getElementById("modalTitle").innerText = "Add Inventory Item";
+  }
+  document.getElementById("invModal").classList.add("show");
+}
+
+function closeModal() { document.getElementById("invModal").classList.remove("show"); }
+document.getElementById("invModal").addEventListener("click", e => { if (e.target === document.getElementById("invModal")) closeModal(); });
+
+async function submitForm(e) {
+  e.preventDefault();
+  const id     = document.getElementById("productId").value;
+  const isEdit = Boolean(id);
+  const payload = {
+    product_name: document.getElementById("productName").value.trim(),
+    category:     document.getElementById("category").value     || null,
+    shelter_id:   document.getElementById("shelterId").value    ? Number(document.getElementById("shelterId").value) : null,
+    quantity:     Number(document.getElementById("quantity").value) || 0,
+    low_alert:    Number(document.getElementById("lowAlert").value) || 10,
+    in_date:      document.getElementById("inDate").value  || null,
+    exp_date:     document.getElementById("expDate").value || null
+  };
+  try {
+    const d = await apiFetch(isEdit ? `${apiBase}/${id}` : apiBase, { method: isEdit ? "PUT" : "POST", body: JSON.stringify(payload) });
+    if (d.error) throw new Error(d.error);
+    setStatus(d.message || (isEdit ? "Item updated" : "Item added"), "success");
+    closeModal(); loadInventory();
+  } catch(err) { setStatus(err.message || "Save failed", "error"); }
+}
+
+async function deleteItem(id) {
+  if (!confirm(`Delete Inventory Item #${id}?`)) return;
+  try {
+    const d = await apiFetch(`${apiBase}/${id}`, { method: "DELETE" });
+    if (d.error) throw new Error(d.error);
+    setStatus(d.message || "Item deleted", "success"); loadInventory();
+  } catch(err) { setStatus(err.message || "Delete failed", "error"); }
+}
+
+function toggleSearch() {
+  const box = document.getElementById("searchBox");
+  box.style.display = box.style.display === "none" ? "block" : "none";
+}
+
+function searchInventory() {
+  const term = document.getElementById("searchInput").value.trim().toLowerCase();
+  const type = document.getElementById("searchType").value;
+  if (!term) return loadInventory();
+
+  const filtered = currentRows.filter(r => {
+    if (type === "name")     return r.PRODUCT_NAME?.toLowerCase().includes(term);
+    if (type === "category") return r.CATEGORY?.toLowerCase() === term;
+    if (type === "shelter")  return String(r.SHELTER_ID) === term;
+    if (type === "low")      return (r.QUANTITY||0) <= (r.LOW_ALERT||10);
+    return false;
+  });
+  renderRows(filtered);
+}
+
+function clearSearch() { document.getElementById("searchInput").value = ""; loadInventory(); }
+function logout() { localStorage.clear(); window.location.href = "login.html"; }
+
+loadInventory();
+</script>
+</body>
+</html>

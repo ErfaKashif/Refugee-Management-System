@@ -1,0 +1,304 @@
+<!--COORDINATOR KA HTML -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Coordinator Management</title>
+  <link rel="stylesheet" href="coordinator.css">
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+</head>
+<body>
+<div class="app">
+   <!-- ──────── sidebar (copy this block into every page) ──────── -->
+
+  <aside class="sidebar">
+  <div class="brand"><i class="fa-solid fa-shield-halved"></i><h1>Admin</h1></div>
+  <div class="menu">
+    <a href="adminView.html"><i class="fa fa-chart-line"></i> Dashboard</a>
+    <a href="refugees.html"><i class="fa fa-users"></i> Refugees</a>
+    <a href="doctor.html"><i class="fa fa-user-doctor"></i> Doctors</a>
+    <a href="volunteer.html"><i class="fa fa-hands-helping"></i> Volunteers</a>
+    <a href="coordinator.html"><i class="fa fa-user-tie"></i> Coordinators</a>
+    <a href="organization.html"><i class="fa fa-user-tie"></i> Organization</a>
+    <a href="shelter.html"><i class="fa fa-building"></i> Shelters</a>
+    <a href="camp.html"><i class="fa fa-campground"></i> Camps</a>
+    <a href="inventory.html"><i class="fa fa-warehouse"></i> Inventory</a>
+    <a href="aid.html"><i class="fa fa-box"></i> Aid Distribution</a>
+    <a href="donations-show.html"><i class="fa fa-hand-holding-dollar"></i> Donations</a>
+    <a href="medical.html"><i class="fa fa-file-medical"></i> Medical Records</a>
+    <a href="incidents.html"><i class="fa fa-exclamation-triangle"></i> Incidents</a>
+    <a href="critical.html"><i class="fa fa-heart-pulse"></i> Critical Patients</a>
+    <a onclick="logout()"><i class="fa fa-right-from-bracket"></i> Logout</a>
+  </div>
+</aside>
+
+  <!-- ──────── MAIN CONTENT ──────── -->
+  <main class="content">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button id="sidebarToggle" class="icon-btn"><i class="fa-solid fa-bars"></i></button>
+        <strong>Coordinator Management</strong>
+      </div>
+      <div class="profile"><div class="avatar">CO</div><span>Coordinator Admin</span></div>
+    </header>
+
+    <div class="page-header">
+      <h2>Coordinators</h2>
+      <button id="addCoordBtn" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add Coordinator</button>
+    </div>
+
+    <section class="cards-grid">
+      <article class="card"><p class="stat-title">Total Coordinators</p><p id="totalCoords" class="stat-value">0</p></article>
+    </section>
+
+    <div class="toolbar toolbar-coord">
+      <input id="searchInput" type="text" placeholder="Search by name or phone…">
+      <button id="searchBtn" class="btn btn-soft"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
+      <button id="resetBtn" class="btn btn-soft"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+    </div>
+
+    <div id="statusMessage" class="status-message"></div>
+
+    <section class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Phone</th>
+            <th>Email</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="coordTableBody"></tbody>
+      </table>
+    </section>
+  </main>
+</div>
+
+<!-- ──────── MODAL ──────── -->
+<div id="coordModal" class="modal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3 id="modalTitle">Add Coordinator</h3>
+      <button class="icon-btn" id="closeModalBtn">&times;</button>
+    </div>
+    <form id="coordForm" class="form-grid">
+      <input type="hidden" id="coordId">
+
+      <div class="input-group"><label for="coordName">Full Name *</label><input id="coordName" type="text" required></div>
+      <div class="input-group"><label for="coordPhone">Phone *</label><input id="coordPhone" type="text" required></div>
+      <div class="input-group"><label for="coordEmail">Email</label><input id="coordEmail" type="email"></div>
+
+      <div class="form-actions">
+        <button type="button" class="btn btn-soft" id="cancelBtn">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="saveBtn">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  // ------------------------------------------------
+  // Helpers – same pattern used in the other pages
+  // ------------------------------------------------
+  const apiBase = `${window.location.origin}/api/coordinators`;
+  const tableBody = document.getElementById('coordTableBody');
+  const statusMsg = document.getElementById('statusMessage');
+  const modal = document.getElementById('coordModal');
+  const modalTitle = document.getElementById('modalTitle');
+  const form = document.getElementById('coordForm');
+
+  const fields = {
+    id:   document.getElementById('coordId'),
+    name: document.getElementById('coordName'),
+    phone:document.getElementById('coordPhone'),
+    email:document.getElementById('coordEmail')
+  };
+
+  const stats = { total: document.getElementById('totalCoords') };
+  let currentRows = [];
+
+  const withNoCache = u => u + (u.includes('?') ? '&' : '?') + `_ts=${Date.now()}`;
+  const setStatus = (msg, type='info') => { statusMsg.textContent = msg; statusMsg.className = `status-message ${type}`; };
+  const clearStatus = () => setStatus('');
+  const readJson = async (resp, fallback) => {
+    const txt = await resp.text();
+    try { return JSON.parse(txt); }
+    catch { throw new Error(`${fallback} (non‑JSON)`); }
+  };
+  const normalizeRows = rows => rows.map(r => {
+    const out = {};
+    Object.keys(r).forEach(k => out[k.toUpperCase()] = r[k]);
+    return out;
+  });
+
+  const renderStats = rows => { stats.total.textContent = rows.length; };
+
+  const renderRows = rows => {
+    tableBody.innerHTML = '';
+    if (!rows.length) {
+      tableBody.innerHTML = '<tr><td colspan="5" class="empty-row">No coordinators found.</td></tr>';
+      renderStats([]);
+      return;
+    }
+    rows.forEach(row => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${row.COORDINATOR_ID||'-'}</td>
+        <td>${row.COORDINATOR_NAME||'-'}</td>
+        <td>${row.PHONE||'-'}</td>
+        <td>${row.EMAIL||'-'}</td>
+        <td class="actions">
+          <button class="btn btn-soft edit-btn" data-id="${row.COORDINATOR_ID}">Edit</button>
+          <button class="btn btn-danger delete-btn" data-id="${row.COORDINATOR_ID}">Delete</button>
+        </td>`;
+      tableBody.appendChild(tr);
+    });
+    renderStats(rows);
+  };
+
+  // ------------------------------------------------
+  // API calls
+  // ------------------------------------------------
+  const loadCoordinators = async () => {
+    try {
+      clearStatus();
+      const resp = await fetch(withNoCache(apiBase), { cache:'no-store' });
+      const data = await readJson(resp, 'Failed to load coordinators');
+      if (!resp.ok) throw new Error(data.error || 'Failed to load coordinators');
+      currentRows = normalizeRows(data);
+      renderRows(currentRows);
+    } catch (e) { setStatus(e.message, 'error'); }
+  };
+
+  const searchCoordinators = async () => {
+    const q = document.getElementById('searchInput').value.trim();
+    if (!q) return loadCoordinators();
+
+    try {
+      clearStatus();
+      const resp = await fetch(
+        withNoCache(`${apiBase}/search?Coordinator_Name=${encodeURIComponent(q)}`),
+        { cache:'no-store' }
+      );
+      const data = await readJson(resp, 'Search failed');
+      if (!resp.ok) throw new Error(data.error || 'Search failed');
+      currentRows = normalizeRows(data);
+      renderRows(currentRows);
+    } catch (e) { setStatus(e.message, 'error'); }
+  };
+
+  const submitForm = async (e) => {
+  e.preventDefault();
+
+  const isEdit = Boolean(fields.id.value);
+  const url = isEdit
+    ? `${apiBase}/${fields.id.value}`
+    : apiBase;
+
+  const method = isEdit ? 'PUT' : 'POST';
+
+  // Different payloads because backend expects different casing
+  const payload = isEdit
+    ? {
+        Coordinator_Name: fields.name.value.trim(),
+        Phone: fields.phone.value.trim(),
+        Email: fields.email.value.trim() || null
+      }
+    : {
+        Coordinator_Name: fields.name.value.trim(),
+        Phone: fields.phone.value.trim(),
+        email: fields.email.value.trim() || null
+      };
+
+  try {
+    clearStatus();
+
+    const resp = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await readJson(resp, 'Save failed');
+
+    if (!resp.ok)
+      throw new Error(data.error || 'Save failed');
+
+    setStatus(
+      isEdit
+        ? 'Coordinator updated successfully'
+        : 'Coordinator added successfully',
+      'success'
+    );
+
+    closeModal();
+    await loadCoordinators();
+
+  } catch (e) {
+    setStatus(e.message, 'error');
+  }
+};
+  const deleteCoordinator = async (id) => {
+    if (!confirm(`Delete coordinator #${id}?`)) return;
+    try {
+      clearStatus();
+      const resp = await fetch(`${apiBase}/${id}`, { method:'DELETE' });
+      const data = await readJson(resp, 'Delete failed');
+      if (!resp.ok) throw new Error(data.error || 'Delete failed');
+      setStatus('Deleted', 'success');
+      await loadCoordinators();
+    } catch (e) {
+      setStatus(e.message, 'error');
+    }
+  };
+
+  // ------------------------------------------------
+  // UI helpers
+  // ------------------------------------------------
+  const openModal = (editRow) => {
+    form.reset();
+    modalTitle.textContent = editRow ? 'Edit Coordinator' : 'Add Coordinator';
+    fields.id.value = editRow?.COORDINATOR_ID || '';
+    fields.name.value = editRow?.COORDINATOR_NAME || '';
+    fields.phone.value = editRow?.PHONE || '';
+    fields.email.value = editRow?.EMAIL || '';
+    modal.classList.add('show');
+  };
+  const closeModal = () => modal.classList.remove('show');
+
+  // ------------------------------------------------
+  // Event wiring
+  // ------------------------------------------------
+  document.getElementById('addCoordBtn').addEventListener('click', () => openModal());
+  document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+  document.getElementById('cancelBtn').addEventListener('click', closeModal);
+  document.getElementById('searchBtn').addEventListener('click', searchCoordinators);
+  document.getElementById('resetBtn').addEventListener('click', async () => {
+    document.getElementById('searchInput').value = '';
+    await loadCoordinators();
+  });
+  form.addEventListener('submit', submitForm);
+
+  tableBody.addEventListener('click', e => {
+    const editBtn = e.target.closest('.edit-btn');
+    const delBtn  = e.target.closest('.delete-btn');
+    if (editBtn) {
+      const id = Number(editBtn.dataset.id);
+      const row = currentRows.find(r => Number(r.COORDINATOR_ID) === id);
+      if (row) openModal(row);
+    }
+    if (delBtn) deleteCoordinator(delBtn.dataset.id);
+  });
+
+  modal.addEventListener('click', e => { if (e.target===modal) closeModal(); });
+
+  document.getElementById('sidebarToggle')
+          .addEventListener('click', () => document.body.classList.toggle('hide-sidebar'));
+
+  loadCoordinators();
+</script>
+</body>
+</html>

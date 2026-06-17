@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Aid Distribution – Admin</title>
+
+<link rel="stylesheet" href="donation.css">
+
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+<link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css"
+rel="stylesheet">
+
+<style>
+
+.modal{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.45);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:1000;
+}
+
+.modal.show{
+  display:flex;
+}
+
+.modal-card{
+  background:#fff;
+  width:min(650px,95%);
+  border-radius:18px;
+  padding:1.4rem;
+  max-height:90vh;
+  overflow-y:auto;
+}
+
+.modal-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:1rem;
+}
+
+.form-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:1rem;
+}
+
+.input-group{
+  display:flex;
+  flex-direction:column;
+  gap:.35rem;
+}
+
+.input-group label{
+  font-weight:600;
+  font-size:.9rem;
+}
+
+.input-group input{
+  padding:.75rem;
+  border:1px solid #d1d5db;
+  border-radius:10px;
+}
+
+.form-actions{
+  margin-top:1rem;
+  display:flex;
+  justify-content:flex-end;
+  gap:.7rem;
+}
+
+.status-message{
+  margin:1rem 0;
+  padding:.8rem 1rem;
+  border-radius:10px;
+  font-size:.9rem;
+}
+
+.status-message.success{
+  background:#dcfce7;
+  color:#166534;
+}
+
+.status-message.error{
+  background:#fee2e2;
+  color:#991b1b;
+}
+
+.toolbar{
+  display:flex;
+  gap:.7rem;
+  margin-bottom:1rem;
+  flex-wrap:wrap;
+}
+
+.toolbar input{
+  flex:1;
+  min-width:240px;
+  padding:.75rem;
+  border:1px solid #d1d5db;
+  border-radius:10px;
+}
+
+.actions{
+  display:flex;
+  gap:.4rem;
+}
+
+.btn-danger{
+  background:#dc2626;
+  color:#fff;
+}
+
+.btn-danger:hover{
+  background:#b91c1c;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+<!-- SIDEBAR -->
+
+<aside class="sidebar">
+  <div class="brand">
+    <i class="fa-solid fa-shield-halved"></i>
+    <h1>Admin</h1>
+  </div>
+
+  <div class="menu">
+    <a href="adminView.html"><i class="fa fa-chart-line"></i> Dashboard</a>
+    <a href="refugees.html"><i class="fa fa-users"></i> Refugees</a>
+    <a href="doctor.html"><i class="fa fa-user-doctor"></i> Doctors</a>
+    <a href="volunteer.html"><i class="fa fa-hands-helping"></i> Volunteers</a>
+    <a href="coordinator.html"><i class="fa fa-user-tie"></i> Coordinators</a>
+    <a href="organizations.html"><i class="fa fa-sitemap"></i> Organizations</a>
+    <a href="shelter.html"><i class="fa fa-building"></i> Shelters</a>
+    <a href="camp.html"><i class="fa fa-campground"></i> Camps</a>
+    <a href="inventory.html"><i class="fa fa-warehouse"></i> Inventory</a>
+    <a class="active"><i class="fa fa-box"></i> Aid Distribution</a>
+    <a href="donations-show.html"><i class="fa fa-hand-holding-dollar"></i> Donations</a>
+    <a href="medical.html"><i class="fa fa-file-medical"></i> Medical Records</a>
+    <a href="incidents.html"><i class="fa fa-exclamation-triangle"></i> Incidents</a>
+    <a href="critical.html"><i class="fa fa-heart-pulse"></i> Critical Patients</a>
+    <a onclick="logout()"><i class="fa fa-right-from-bracket"></i> Logout</a>
+  </div>
+</aside>
+
+<!-- MAIN -->
+
+<main class="content">
+
+<div class="topbar">
+
+  <div class="topbar-left">
+    <button class="icon-btn" id="sidebarToggle">
+      <i class="fa-solid fa-bars"></i>
+    </button>
+
+    <strong>Aid Distribution Management</strong>
+  </div>
+
+  <div class="profile">
+    <div class="avatar">A</div>
+    <span id="info">Admin</span>
+  </div>
+
+</div>
+
+<div class="page-header">
+  <h2>Aid Distributions</h2>
+
+  <button class="btn btn-primary" id="openAddAid">
+    <i class="fa fa-plus"></i>
+    Add Aid
+  </button>
+</div>
+
+<div class="toolbar">
+  <input type="text" id="searchInput"
+         placeholder="Search by item or refugee...">
+
+  <button class="btn btn-soft" onclick="searchAid()">
+    <i class="fa fa-search"></i>
+    Search
+  </button>
+
+  <button class="btn btn-soft" onclick="loadAid()">
+    <i class="fa fa-rotate"></i>
+    Refresh
+  </button>
+</div>
+
+<div id="statusMsg"></div>
+
+<section class="table-wrap">
+
+<table>
+
+<thead>
+<tr>
+  <th>ID</th>
+  <th>Item</th>
+  <th>Qty</th>
+  <th>Date</th>
+  <th>Refugee ID</th>
+  <th>Shelter ID</th>
+  <th>Actions</th>
+</tr>
+</thead>
+
+<tbody id="aidBody">
+<tr class="empty-row">
+<td colspan="7">Loading...</td>
+</tr>
+</tbody>
+
+</table>
+
+</section>
+
+</main>
+</div>
+
+<!-- MODAL -->
+
+<div class="modal" id="aidModal">
+
+<div class="modal-card">
+
+<div class="modal-head">
+  <h3 id="modalTitle">Add Aid Distribution</h3>
+
+  <button class="icon-btn" onclick="closeModal()">
+    <i class="fa fa-xmark"></i>
+  </button>
+</div>
+
+<form id="aidForm">
+
+<input type="hidden" id="distributionId">
+
+<div class="form-grid">
+
+<div class="input-group">
+<label>Item Name *</label>
+<input type="text" id="aidItem" required>
+</div>
+
+<div class="input-group">
+<label>Quantity *</label>
+<input type="number" id="aidQty" min="1" required>
+</div>
+
+<div class="input-group">
+<label>Distribution Date *</label>
+<input type="date" id="aidDate" required>
+</div>
+
+<div class="input-group">
+<label>Refugee ID *</label>
+<input type="number" id="refugeeId" min="1" required>
+</div>
+
+<div class="input-group">
+<label>Shelter ID *</label>
+<input type="number" id="shelterId" min="1" required>
+</div>
+
+</div>
+
+<div class="form-actions">
+
+<button type="button"
+class="btn btn-soft"
+onclick="closeModal()">
+Cancel
+</button>
+
+<button type="submit"
+class="btn btn-primary">
+Save
+</button>
+
+</div>
+
+</form>
+
+</div>
+</div>
+
+<script>
+
+const API = "http://localhost:3000/api/aid";
+
+const tbody = document.getElementById("aidBody");
+
+let currentRows = [];
+
+document.getElementById("info").innerText =
+"Admin: " + (localStorage.getItem("username") || "");
+
+function setStatus(msg,type="success"){
+
+  const el = document.getElementById("statusMsg");
+
+  el.className = `status-message ${type}`;
+  el.textContent = msg;
+}
+
+function clearStatus(){
+  document.getElementById("statusMsg").innerHTML = "";
+}
+
+async function loadAid(){
+
+  try{
+
+    clearStatus();
+
+    const res = await fetch(API);
+
+    const data = await res.json();
+
+    currentRows = data;
+
+    renderRows(data);
+
+  }catch(err){
+
+    setStatus("Failed to load aid distributions","error");
+
+    console.error(err);
+  }
+}
+
+function renderRows(rows){
+
+  if(!rows.length){
+
+    tbody.innerHTML = `
+      <tr class="empty-row">
+        <td colspan="7">No records found.</td>
+      </tr>
+    `;
+
+    return;
+  }
+
+  tbody.innerHTML = rows.map(r=>`
+
+    <tr>
+
+      <td>${r.DISTRIBUTION_ID}</td>
+
+      <td>${r.ITEM_NAME}</td>
+
+      <td>${r.QUANTITY}</td>
+
+      <td>
+        ${new Date(r.DISTRIBUTION_DATE).toLocaleDateString()}
+      </td>
+
+      <td>${r.REFUGEE_ID}</td>
+
+      <td>${r.SHELTER_ID}</td>
+
+      <td class="actions">
+
+        <button class="btn btn-soft"
+        onclick="openModal(${r.DISTRIBUTION_ID})">
+        Edit
+        </button>
+
+        <button class="btn btn-danger"
+        onclick="deleteAid(${r.DISTRIBUTION_ID})">
+        Delete
+        </button>
+
+      </td>
+
+    </tr>
+
+  `).join('');
+}
+
+function searchAid(){
+
+  const q = document.getElementById("searchInput")
+            .value
+            .trim()
+            .toLowerCase();
+
+  if(!q){
+    renderRows(currentRows);
+    return;
+  }
+
+  const filtered = currentRows.filter(r =>
+
+    r.ITEM_NAME?.toLowerCase().includes(q) ||
+
+    String(r.REFUGEE_ID).includes(q)
+
+  );
+
+  renderRows(filtered);
+}
+
+function openModal(id=null){
+
+  document.getElementById("aidForm").reset();
+
+  document.getElementById("distributionId").value = "";
+
+  if(id){
+
+    const row = currentRows.find(r =>
+      Number(r.DISTRIBUTION_ID) === Number(id)
+    );
+
+    if(!row) return;
+
+    document.getElementById("modalTitle").innerText =
+    "Edit Aid Distribution";
+
+    document.getElementById("distributionId").value =
+    row.DISTRIBUTION_ID;
+
+    document.getElementById("aidItem").value =
+    row.ITEM_NAME || "";
+
+    document.getElementById("aidQty").value =
+    row.QUANTITY || "";
+
+    document.getElementById("aidDate").value =
+    new Date(row.DISTRIBUTION_DATE)
+    .toISOString()
+    .split('T')[0];
+
+    document.getElementById("refugeeId").value =
+    row.REFUGEE_ID || "";
+
+    document.getElementById("shelterId").value =
+    row.SHELTER_ID || "";
+
+  }else{
+
+    document.getElementById("modalTitle").innerText =
+    "Add Aid Distribution";
+  }
+
+  document.getElementById("aidModal")
+  .classList.add("show");
+}
+
+function closeModal(){
+
+  document.getElementById("aidModal")
+  .classList.remove("show");
+}
+
+document.getElementById("openAddAid")
+.addEventListener("click",()=>openModal());
+
+document.getElementById("aidModal")
+.addEventListener("click",e=>{
+
+  if(e.target.id === "aidModal")
+    closeModal();
+});
+
+document.getElementById("aidForm")
+.addEventListener("submit", async e=>{
+
+  e.preventDefault();
+
+  const id = document.getElementById("distributionId").value;
+
+  const payload = {
+
+    aid_type:
+      document.getElementById("aidItem").value.trim(),
+
+    quantity:
+      Number(document.getElementById("aidQty").value),
+
+    distribution_date:
+      document.getElementById("aidDate").value,
+
+    refugee_id:
+      Number(document.getElementById("refugeeId").value),
+
+    shelter_id:
+      Number(document.getElementById("shelterId").value)
+  };
+
+  try{
+
+    const res = await fetch(
+      id ? `${API}/${id}` : API,
+      {
+        method: id ? "PUT" : "POST",
+
+        headers:{
+          "Content-Type":"application/json"
+        },
+
+        body: JSON.stringify(payload)
+      }
+    );
+
+    const data = await res.json();
+
+    if(!res.ok)
+      throw new Error(data.error || "Operation failed");
+
+    setStatus(
+      id ? "Aid updated successfully"
+         : "Aid added successfully"
+    );
+
+    closeModal();
+
+    loadAid();
+
+  }catch(err){
+
+    console.error(err);
+
+    setStatus(err.message,"error");
+  }
+});
+
+async function deleteAid(id){
+
+  if(!confirm(`Delete aid distribution #${id}?`))
+    return;
+
+  try{
+
+    const res = await fetch(`${API}/${id}`,{
+      method:"DELETE"
+    });
+
+    const data = await res.json();
+
+    if(!res.ok)
+      throw new Error(data.error || "Delete failed");
+
+    setStatus("Aid deleted successfully");
+
+    loadAid();
+
+  }catch(err){
+
+    console.error(err);
+
+    setStatus(err.message,"error");
+  }
+}
+
+document.getElementById("sidebarToggle")
+.addEventListener("click",()=>{
+
+  document.body.classList.toggle("hide-sidebar");
+});
+
+function logout(){
+
+  localStorage.clear();
+
+  window.location.href = "login.html";
+}
+
+loadAid();
+
+</script>
+
+</body>
+</html>

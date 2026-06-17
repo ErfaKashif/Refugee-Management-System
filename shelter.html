@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Shelters – Admin</title>
+  <link rel="stylesheet" href="shelter.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+</head>
+<body>
+<div class="app">
+
+<!-- ── SIDEBAR (matches organizations.html exactly) ── -->
+
+<aside class="sidebar">
+  <div class="brand"><i class="fa-solid fa-shield-halved"></i><h1>Admin</h1></div>
+  <div class="menu">
+    <a href="adminView.html"><i class="fa fa-chart-line"></i> Dashboard</a>
+    <a href="refugees.html"><i class="fa fa-users"></i> Refugees</a>
+    <a href="doctor.html"><i class="fa fa-user-doctor"></i> Doctors</a>
+    <a href="volunteer.html"><i class="fa fa-hands-helping"></i> Volunteers</a>
+    <a href="coordinator.html"><i class="fa fa-user-tie"></i> Coordinators</a>
+    <a class="active"><i class="fa fa-sitemap"></i> Organizations</a>
+    <a href="shelter.html"><i class="fa fa-building"></i> Shelters</a>
+    <a href="camp.html"><i class="fa fa-campground"></i> Camps</a>
+    <a href="inventory.html"><i class="fa fa-warehouse"></i> Inventory</a>
+    <a href="aid.html"><i class="fa fa-box"></i> Aid Distribution</a>
+    <a href="donations-show.html"><i class="fa fa-hand-holding-dollar"></i> Donations</a>
+    <a href="medical.html"><i class="fa fa-file-medical"></i> Medical Records</a>
+    <a href="incidents.html"><i class="fa fa-exclamation-triangle"></i> Incidents</a>
+    <a href="critical.html"><i class="fa fa-heart-pulse"></i> Critical Patients</a>
+    <a onclick="logout()"><i class="fa fa-right-from-bracket"></i> Logout</a>
+  </div>
+</aside>
+  <!-- ──────── MAIN CONTENT ──────── -->
+  <main class="content">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button id="sidebarToggle" class="icon-btn"><i class="fa-solid fa-bars"></i></button>
+        <strong>Shelter Management</strong>
+      </div>
+      <div class="profile">
+        <div class="avatar">A</div>
+        <span id="info">Admin</span>
+      </div>
+    </header>
+
+    <div class="page-header">
+      <h2>Shelters</h2>
+      <button id="addShelterBtn" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add Shelter</button>
+    </div>
+
+    <section class="cards-grid">
+      <article class="card"><p class="stat-title">Total Shelters</p><p id="totalShelters" class="stat-value">0</p></article>
+    </section>
+
+    <div class="toolbar toolbar-shelter">
+      <input id="searchInput" type="text" placeholder="Search by name or location…">
+      <button id="searchBtn" class="btn btn-soft"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
+      <button id="resetBtn" class="btn btn-soft"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+    </div>
+
+    <div id="statusMessage" class="status-message"></div>
+
+    <section class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Total&nbsp;Cap.</th>
+            <th>Current&nbsp;Cap.</th>
+            <th>Country</th>
+            <th>State</th>
+            <th>District</th>
+            <th>City</th>
+            <th>Coordinator</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="shelterTableBody"></tbody>
+      </table>
+    </section>
+  </main>
+</div>
+
+<!-- ──────── MODAL ──────── -->
+<div id="shelterModal" class="modal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3 id="modalTitle">Add Shelter</h3>
+      <button class="icon-btn" id="closeModalBtn">&times;</button>
+    </div>
+    <form id="shelterForm" class="form-grid">
+      <input type="hidden" id="shelterId">
+
+      <div class="input-group"><label for="shelterName">Shelter Name *</label><input id="shelterName" type="text" required></div>
+      <div class="input-group"><label for="totalCap">Total Capacity *</label><input id="totalCap" type="number" min="0" required></div>
+      <div class="input-group"><label for="currCap">Current Capacity *</label><input id="currCap" type="number" min="0" required></div>
+      <div class="input-group"><label for="country">Country</label><input id="country" type="text"></div>
+      <div class="input-group"><label for="state">State</label><input id="state" type="text"></div>
+      <div class="input-group"><label for="district">District</label><input id="district" type="text"></div>
+      <div class="input-group"><label for="city">City</label><input id="city" type="text"></div>
+      <div class="input-group"><label for="coordinatorId">Coordinator ID</label><input id="coordinatorId" type="number" min="1"></div>
+
+      <div class="form-actions">
+        <button type="button" class="btn btn-soft" id="cancelBtn">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="saveBtn">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  const apiBase   = `${window.location.origin}/api/shelters`;
+  const tableBody = document.getElementById('shelterTableBody');
+  const statusMsg = document.getElementById('statusMessage');
+  const modal     = document.getElementById('shelterModal');
+  const modalTitle= document.getElementById('modalTitle');
+  const form      = document.getElementById('shelterForm');
+
+  document.getElementById("info").innerText = "Admin: " + (localStorage.getItem("username") || "");
+
+  const fields = {
+    id:          document.getElementById('shelterId'),
+    name:        document.getElementById('shelterName'),
+    totalCap:    document.getElementById('totalCap'),
+    currCap:     document.getElementById('currCap'),
+    country:     document.getElementById('country'),
+    state:       document.getElementById('state'),
+    district:    document.getElementById('district'),
+    city:        document.getElementById('city'),
+    coordinator: document.getElementById('coordinatorId')
+  };
+
+  const stats = { total: document.getElementById('totalShelters') };
+  let currentRows = [];
+
+  const withNoCache  = u => u + (u.includes('?') ? '&' : '?') + `_ts=${Date.now()}`;
+  const setStatus    = (msg, type='info') => { statusMsg.textContent = msg; statusMsg.className = `status-message ${type}`; };
+  const clearStatus  = () => setStatus('');
+  const readJson     = async (resp, fallback) => {
+    const txt = await resp.text();
+    try { return JSON.parse(txt); }
+    catch { throw new Error(`${fallback} (non‑JSON)`); }
+  };
+  const normalizeRows = rows => rows.map(r => {
+    const out = {};
+    Object.keys(r).forEach(k => out[k.toUpperCase()] = r[k]);
+    return out;
+  });
+
+  const renderStats = rows => { stats.total.textContent = rows.length; };
+
+  const renderRows = rows => {
+    tableBody.innerHTML = '';
+    if (!rows.length) {
+      tableBody.innerHTML = '<tr><td colspan="10" class="empty-row">No shelters found.</td></tr>';
+      renderStats([]);
+      return;
+    }
+    rows.forEach(row => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${row.SHELTER_ID        || '-'}</td>
+        <td>${row.SHELTER_NAME      || '-'}</td>
+        <td>${row.TOTAL_CAPACITY    || '-'}</td>
+        <td>${row.CURR_CAPACITY     || '-'}</td>
+        <td>${row.COUNTRY           || '-'}</td>
+        <td>${row.STATE             || '-'}</td>
+        <td>${row.DISTRICT          || '-'}</td>
+        <td>${row.CITY              || '-'}</td>
+        <td>${row.COORDINATOR_NAME  || '-'}</td>
+        <td class="actions">
+          <button class="btn btn-soft edit-btn"   data-id="${row.SHELTER_ID}">Edit</button>
+          <button class="btn btn-danger delete-btn" data-id="${row.SHELTER_ID}">Delete</button>
+        </td>`;
+      tableBody.appendChild(tr);
+    });
+    renderStats(rows);
+  };
+
+  // ── API Calls ──────────────────────────────────────────
+  const loadShelters = async () => {
+    try {
+      clearStatus();
+      const resp = await fetch(withNoCache(apiBase), { cache:'no-store' });
+      const data = await readJson(resp, 'Failed to load shelters');
+      if (!resp.ok) throw new Error(data.error || 'Failed to load shelters');
+      currentRows = normalizeRows(data);
+      renderRows(currentRows);
+    } catch (e) { setStatus(e.message, 'error'); }
+  };
+
+  const searchShelters = async () => {
+  const q = document.getElementById('searchInput').value.trim();
+  if (!q) return loadShelters();
+
+  try {
+    clearStatus();
+
+    const resp = await fetch(
+      `${apiBase}/search?q=${encodeURIComponent(q)}`,
+      { cache: 'no-store' }
+    );
+
+    const data = await readJson(resp, 'Search failed');
+
+    if (!resp.ok) throw new Error(data.error || 'Search failed');
+
+    currentRows = normalizeRows(data);
+    renderRows(currentRows);
+
+  } catch (e) {
+    setStatus(e.message, 'error');
+  }
+};
+
+  const submitForm = async (e) => {
+    e.preventDefault();
+    const isEdit = Boolean(fields.id.value);
+    const url    = isEdit ? `${apiBase}/${fields.id.value}` : apiBase;
+    const method = isEdit ? 'PUT' : 'POST';
+
+    const payload = {
+      shelter_name:   fields.name.value.trim(),
+      total_capacity: Number(fields.totalCap.value),
+      curr_capacity:  Number(fields.currCap.value),
+      country:        fields.country.value.trim()   || null,
+      state:          fields.state.value.trim()     || null,
+      district:       fields.district.value.trim()  || null,
+      city:           fields.city.value.trim()      || null,
+      coordinator_id: fields.coordinator.value ? Number(fields.coordinator.value) : null
+    };
+
+    try {
+      clearStatus();
+      const resp = await fetch(url, { method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      const data = await readJson(resp, 'Save failed');
+      if (!resp.ok) throw new Error(data.error || 'Save failed');
+      setStatus('Saved successfully', 'success');
+      closeModal();
+      await loadShelters();
+    } catch (e) { setStatus(e.message, 'error'); }
+  };
+
+  const deleteShelter = async (id) => {
+    if (!confirm(`Delete shelter #${id}?`)) return;
+    try {
+      clearStatus();
+      const resp = await fetch(`${apiBase}/${id}`, { method:'DELETE' });
+      const data = await readJson(resp, 'Delete failed');
+      if (!resp.ok) throw new Error(data.error || 'Delete failed');
+      setStatus('Deleted successfully', 'success');
+      await loadShelters();
+    } catch (e) { setStatus(e.message, 'error'); }
+  };
+
+  // ── UI Helpers ─────────────────────────────────────────
+  const openModal = (editRow) => {
+    form.reset();
+    modalTitle.textContent   = editRow ? 'Edit Shelter' : 'Add Shelter';
+    fields.id.value          = editRow?.SHELTER_ID    || '';
+    if (editRow) {
+      fields.name.value        = editRow.SHELTER_NAME   || '';
+      fields.totalCap.value    = editRow.TOTAL_CAPACITY || '';
+      fields.currCap.value     = editRow.CURR_CAPACITY  || '';
+      fields.country.value     = editRow.COUNTRY        || '';
+      fields.state.value       = editRow.STATE          || '';
+      fields.district.value    = editRow.DISTRICT       || '';
+      fields.city.value        = editRow.CITY           || '';
+      fields.coordinator.value = editRow.COORDINATOR_ID || '';
+    }
+    modal.classList.add('show');
+  };
+  const closeModal = () => modal.classList.remove('show');
+
+  // ── Event Wiring ───────────────────────────────────────
+  document.getElementById('addShelterBtn').addEventListener('click', () => openModal());
+  document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+  document.getElementById('cancelBtn').addEventListener('click', closeModal);
+  document.getElementById('searchBtn').addEventListener('click', searchShelters);
+  document.getElementById('resetBtn').addEventListener('click', async () => {
+    document.getElementById('searchInput').value = '';
+    await loadShelters();
+  });
+  form.addEventListener('submit', submitForm);
+
+  tableBody.addEventListener('click', e => {
+    const editBtn = e.target.closest('.edit-btn');
+    const delBtn  = e.target.closest('.delete-btn');
+    if (editBtn) {
+      const row = currentRows.find(r => Number(r.SHELTER_ID) === Number(editBtn.dataset.id));
+      if (row) openModal(row);
+    }
+    if (delBtn) deleteShelter(delBtn.dataset.id);
+  });
+
+  modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+
+  document.getElementById('sidebarToggle')
+          .addEventListener('click', () => document.body.classList.toggle('hide-sidebar'));
+
+  // ── Logout ─────────────────────────────────────────────
+  function logout() {
+    localStorage.clear();
+    window.location.href = "login.html";
+  }
+
+  // ── Init ───────────────────────────────────────────────
+  loadShelters();
+</script>
+</body>
+</html>

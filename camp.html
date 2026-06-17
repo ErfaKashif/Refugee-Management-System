@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Camps – Admin</title>
+<link rel="stylesheet" href="donation.css">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+<style>
+  .crud-section{display:none;background:#fff;border:1px solid #dbe3ef;border-radius:14px;padding:1.2rem;margin-bottom:1rem;}
+  .crud-section.show{display:block;}
+  .crud-section h3{margin:0 0 0.8rem;color:#1e3a8a;border-bottom:2px solid #60a5fa;padding-bottom:0.4rem;}
+  .crud-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.6rem;}
+  .action-bar{display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem;padding:0.8rem;background:#fff;border:1px solid #dbe3ef;border-radius:14px;}
+  .status-message{padding:0.6rem 1rem;border-radius:8px;margin-bottom:0.8rem;display:none;font-size:0.9rem;}
+  .status-message.show{display:block;}
+  .status-message.success{background:#dcfce7;color:#166534;border:1px solid #bbf7d0;}
+  .status-message.error{background:#fee2e2;color:#991b1b;border:1px solid #fecaca;}
+  .status-message.info{background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe;}
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;justify-content:center;align-items:center;}
+  .modal-overlay.show{display:flex;}
+  .modal-card{background:#fff;border-radius:14px;padding:1.5rem;width:100%;max-width:560px;box-shadow:0 8px 32px rgba(0,0,0,0.18);}
+  .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;border-bottom:2px solid #60a5fa;padding-bottom:0.5rem;}
+  .modal-head h3{margin:0;color:#1e3a8a;}
+  .modal-close{background:none;border:none;font-size:1.4rem;cursor:pointer;color:#6b7280;line-height:1;}
+  .modal-actions{display:flex;gap:0.5rem;margin-top:1rem;justify-content:flex-end;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="sidebar">
+  <div class="brand"><i class="fa-solid fa-shield-halved"></i><h1>Admin</h1></div>
+  <div class="menu">
+    <a href="adminView.html"><i class="fa fa-chart-line"></i> Dashboard</a>
+    <a href="refugees.html"><i class="fa fa-users"></i> Refugees</a>
+    <a href="doctor.html"><i class="fa fa-user-doctor"></i> Doctors</a>
+    <a href="volunteer.html"><i class="fa fa-hands-helping"></i> Volunteers</a>
+    <a href="coordinator.html"><i class="fa fa-user-tie"></i> Coordinators</a>
+    <a href="organization.html"><i class="fa fa-user-tie"></i> Organization</a>
+    <a href="shelter.html"><i class="fa fa-building"></i> Shelters</a>
+    <a href="camp.html"><i class="fa fa-campground"></i> Camps</a>
+    <a href="inventory.html"><i class="fa fa-warehouse"></i> Inventory</a>
+    <a href="aid.html"><i class="fa fa-box"></i> Aid Distribution</a>
+    <a href="donations-show.html"><i class="fa fa-hand-holding-dollar"></i> Donations</a>
+    <a href="medical.html"><i class="fa fa-file-medical"></i> Medical Records</a>
+    <a href="incidents.html"><i class="fa fa-exclamation-triangle"></i> Incidents</a>
+    <a href="critical.html"><i class="fa fa-heart-pulse"></i> Critical Patients</a>
+    <a onclick="logout()"><i class="fa fa-right-from-bracket"></i> Logout</a>
+  </div>
+</aside>
+
+<main class="content">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <h3>Camps</h3>
+    <div class="profile">
+      <div class="avatar">A</div>
+      <span id="info">Admin</span>
+    </div>
+  </div>
+
+  <!-- ACTION BAR -->
+  <div class="action-bar">
+    <button class="btn btn-primary" onclick="openModal()"><i class="fa fa-plus"></i> Add Camp</button>
+    <button class="btn btn-soft"    onclick="toggleSearch()"><i class="fa fa-magnifying-glass"></i> Search</button>
+    <button class="btn btn-soft"    onclick="loadCamps()"><i class="fa fa-refresh"></i> Refresh</button>
+  </div>
+
+  <!-- SEARCH -->
+  <div class="card" id="searchBox" style="display:none;margin-bottom:1rem;">
+    <h3>Search Camps</h3>
+    <div class="toolbar">
+      <input id="searchInput" placeholder="Search by name or location...">
+      <button class="btn btn-primary" onclick="searchCamps()">Search</button>
+      <button class="btn btn-soft"    onclick="clearSearch()">Clear</button>
+    </div>
+  </div>
+
+  <!-- STATUS -->
+  <div id="statusMsg" class="status-message"></div>
+
+  <!-- STATS -->
+  <div class="cards-grid">
+    <div class="card">
+      <p class="stat-title">Total Camps</p>
+      <p class="stat-value" id="totalCamps">0</p>
+    </div>
+    <div class="card">
+      <p class="stat-title">Total Current Occupancy</p>
+      <p class="stat-value" id="totalOccupancy">0</p>
+    </div>
+    <div class="card">
+      <p class="stat-title">Total Capacity</p>
+      <p class="stat-value" id="totalCapacity">0</p>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Camp ID</th>
+          <th>Camp Name</th>
+          <th>Location</th>
+          <th>Shelter ID</th>
+          <th>Current Cap.</th>
+          <th>Total Cap.</th>
+          <th>Occupancy %</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="campTableBody">
+        <tr><td colspan="8" class="empty-row">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+</div>
+
+<!-- ── MODAL ── -->
+<div id="campModal" class="modal-overlay">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3 id="modalTitle">Add Camp</h3>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <form id="campForm" onsubmit="submitForm(event)">
+      <input type="hidden" id="campId">
+      <div class="crud-form">
+        <div class="input-group">
+          <label>Camp Name *</label>
+          <input id="campName" placeholder="Camp Name" required>
+        </div>
+        <div class="input-group">
+          <label>Location / Block *</label>
+          <input id="campLocation" placeholder="e.g. Block A, North Wing" required>
+        </div>
+        <div class="input-group">
+          <label>Shelter ID *</label>
+          <input id="campShelterId" placeholder="Shelter ID" type="number" min="1" required>
+        </div>
+        <div class="input-group">
+          <label>Current Capacity</label>
+          <input id="campCurrCap" placeholder="Current Occupancy" type="number" min="0" value="0">
+        </div>
+        <div class="input-group">
+          <label>Total Capacity *</label>
+          <input id="campTotalCap" placeholder="Total Capacity" type="number" min="1" required>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-soft" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary"><i class="fa fa-check"></i> Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const API   = "http://localhost:3000";
+const token = localStorage.getItem("token");
+const role  = localStorage.getItem("role");
+
+if (!token || role !== "admin") {
+  alert("Access denied.");
+  window.location.href = "login.html";
+}
+
+document.getElementById("info").innerText = "Admin: " + (localStorage.getItem("username") || "");
+
+const apiBase   = `${API}/api/camps`;
+const tableBody = document.getElementById("campTableBody");
+
+let currentRows = [];
+
+// ── Fetch Helper ───────────────────────────────────────────
+async function apiFetch(url, options = {}) {
+  const res = await fetch(url + (url.includes('?') ? '&' : '?') + `_ts=${Date.now()}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token,
+      ...(options.headers || {})
+    },
+    cache: "no-store"
+  });
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch { throw new Error("Invalid server response"); }
+}
+
+// ── Status ─────────────────────────────────────────────────
+function setStatus(msg, type = "info") {
+  const el = document.getElementById("statusMsg");
+  el.textContent = msg;
+  el.className = `status-message show ${type}`;
+  setTimeout(() => { el.className = "status-message"; }, 4000);
+}
+
+// ── Normalize keys to uppercase ────────────────────────────
+function normalizeRows(rows) {
+  return rows.map(r => {
+    const out = {};
+    Object.keys(r).forEach(k => out[k.toUpperCase()] = r[k]);
+    return out;
+  });
+}
+
+// ── Occupancy Badge ────────────────────────────────────────
+function occupancyBadge(curr, total) {
+  if (!total) return '<span style="color:#6b7280">N/A</span>';
+  const pct = Math.round((curr / total) * 100);
+  const color = pct >= 90 ? "#dc2626" : pct >= 70 ? "#d97706" : "#16a34a";
+  return `<span style="font-weight:600;color:${color}">${pct}%</span>`;
+}
+
+// ── Render Table ───────────────────────────────────────────
+function renderRows(rows) {
+  document.getElementById("totalCamps").innerText     = rows.length;
+  document.getElementById("totalOccupancy").innerText = rows.reduce((s, r) => s + (Number(r.CURR_CAPACITY)  || 0), 0).toLocaleString();
+  document.getElementById("totalCapacity").innerText  = rows.reduce((s, r) => s + (Number(r.TOTAL_CAPACITY) || 0), 0).toLocaleString();
+
+  if (!rows.length) {
+    tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">No camps found.</td></tr>`;
+    return;
+  }
+
+  tableBody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${r.CAMP_ID        ?? '-'}</td>
+      <td>${r.CAMP_NAME      ?? '-'}</td>
+      <td>${r.BLOCK          ?? '-'}</td>
+      <td>${r.SHELTER_ID     ?? '-'}</td>
+      <td>${r.CURR_CAPACITY  ?? 0}</td>
+      <td>${r.TOTAL_CAPACITY ?? 0}</td>
+      <td>${occupancyBadge(r.CURR_CAPACITY, r.TOTAL_CAPACITY)}</td>
+      <td>
+        <button class="btn btn-primary edit-btn"   data-id="${r.CAMP_ID}">Edit</button>
+        <button class="btn btn-danger  delete-btn" data-id="${r.CAMP_ID}">Delete</button>
+      </td>
+    </tr>
+  `).join('');
+
+  tableBody.querySelectorAll(".edit-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const row = currentRows.find(r => Number(r.CAMP_ID) === Number(btn.dataset.id));
+      if (row) openModal(row);
+    });
+  });
+
+  tableBody.querySelectorAll(".delete-btn").forEach(btn => {
+    btn.addEventListener("click", () => deleteCamp(btn.dataset.id));
+  });
+}
+
+// ── Load All Camps ─────────────────────────────────────────
+async function loadCamps() {
+  document.getElementById("searchBox").style.display = "none";
+  try {
+    const data = await apiFetch(apiBase);
+    if (!Array.isArray(data)) throw new Error(data.error || "Failed to load camps");
+    currentRows = normalizeRows(data);
+    renderRows(currentRows);
+  } catch (e) {
+    setStatus(e.message, "error");
+    tableBody.innerHTML = `<tr><td colspan="8" class="empty-row">${e.message}</td></tr>`;
+  }
+}
+
+// ── Modal Open / Close ─────────────────────────────────────
+function openModal(editRow) {
+  document.getElementById("campForm").reset();
+  document.getElementById("campId").value = "";
+
+  if (editRow) {
+    document.getElementById("modalTitle").innerText = "Edit Camp #" + editRow.CAMP_ID;
+
+    document.getElementById("campId").value        = editRow.CAMP_ID ?? "";
+    document.getElementById("campName").value      = editRow.CAMP_NAME ?? "";
+    document.getElementById("campLocation").value  = editRow.BLOCK ?? "";
+    document.getElementById("campShelterId").value = editRow.SHELTER_ID ?? "";
+    document.getElementById("campCurrCap").value   = editRow.CURR_CAPACITY ?? 0;
+    document.getElementById("campTotalCap").value  = editRow.TOTAL_CAPACITY ?? "";
+  }
+
+  document.getElementById("campModal").classList.add("show");
+}
+
+function closeModal() {
+  document.getElementById("campModal").classList.remove("show");
+}
+
+// Close on backdrop click
+document.getElementById("campModal").addEventListener("click", e => {
+  if (e.target === document.getElementById("campModal")) closeModal();
+});
+
+// ── Submit Form (Add / Edit) ───────────────────────────────
+async function submitForm(e) {
+  e.preventDefault();
+
+  const id = document.getElementById("campId").value;
+
+  const payload = {
+    Camp_name: document.getElementById("campName").value.trim(),
+    Block: document.getElementById("campLocation").value.trim(),
+    Shelter_ID: Number(document.getElementById("campShelterId").value),
+    Curr_Capacity: Number(document.getElementById("campCurrCap").value) || 0,
+    Total_Capacity: Number(document.getElementById("campTotalCap").value)
+  };
+
+  // FIXED validation (matches backend exactly)
+  if (
+    !payload.Camp_name ||
+    !payload.Block ||
+    !payload.Shelter_ID ||
+    !payload.Total_Capacity
+  ) {
+    setStatus("Please fill all required fields", "error");
+    return;
+  }
+
+  const isEdit = Boolean(id);
+  const url = isEdit ? `${apiBase}/${id}` : apiBase;
+  const method = isEdit ? "PUT" : "POST";
+
+  try {
+    const d = await apiFetch(url, {
+      method,
+      body: JSON.stringify(payload)
+    });
+
+    if (d.error) throw new Error(d.error);
+
+    setStatus(
+      d.message ||
+      (isEdit ? "Camp updated successfully" : "Camp added successfully"),
+      "success"
+    );
+
+    closeModal();
+    loadCamps();
+
+  } catch (err) {
+    setStatus(err.message || "Save failed", "error");
+  }
+}
+
+// ── Delete Camp ────────────────────────────────────────────
+async function deleteCamp(id) {
+  if (!confirm(`Delete Camp #${id}?\n\nThis may affect linked refugees.`)) return;
+  try {
+    const d = await apiFetch(`${apiBase}/${id}`, { method: "DELETE" });
+    if (d.error) throw new Error(d.error);
+    setStatus(d.message || "Camp deleted successfully", "success");
+    loadCamps();
+  } catch (err) {
+    setStatus(err.message || "Delete failed", "error");
+  }
+}
+
+// ── Search ─────────────────────────────────────────────────
+function toggleSearch() {
+  const box = document.getElementById("searchBox");
+  box.style.display = box.style.display === "none" ? "block" : "none";
+}
+
+async function searchCamps() {
+  const q = document.getElementById("searchInput").value.trim();
+  if (!q) return loadCamps();
+
+  try {
+    // Try server-side search endpoint first
+    const data = await apiFetch(`${apiBase}/search?q=${encodeURIComponent(q)}`);
+    if (Array.isArray(data)) {
+      currentRows = normalizeRows(data);
+      renderRows(currentRows);
+      return;
+    }
+  } catch (_) { /* fall through to client-side */ }
+
+  // Client-side fallback filter
+  const lower    = q.toLowerCase();
+  const filtered = currentRows.filter(r =>
+    (r.CAMP_NAME?.toLowerCase().includes(lower)) ||
+    (r.LOCATION?.toLowerCase().includes(lower))  ||
+    (r.BLOCK?.toLowerCase().includes(lower))      ||
+    (String(r.SHELTER_ID) === q)                  ||
+    (String(r.CAMP_ID)    === q)
+  );
+  renderRows(filtered);
+}
+
+function clearSearch() {
+  document.getElementById("searchInput").value = "";
+  loadCamps();
+}
+
+// ── Logout ─────────────────────────────────────────────────
+function logout() {
+  localStorage.clear();
+  window.location.href = "login.html";
+}
+
+// ── Init ───────────────────────────────────────────────────
+loadCamps();
+</script>
+</body>
+</html>

@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard – MyApp</title>
+<link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+  <!-- Your existing stylesheet (kept unchanged) -->
+  <link rel="stylesheet" href="donation.css">
+
+  <!-- Boxicons – the same icon set you already use -->
+  <link href="https://cdn.jsdelivr.net/npm/boxicons@2.1.4/css/boxicons.min.css"
+        rel="stylesheet">
+</head>
+<body class="app">
+
+  <!-- ======================  SIDEBAR  ====================== -->
+
+  <aside class="sidebar">
+  <div class="brand"><i class="fa-solid fa-shield-halved"></i><h1>Admin</h1></div>
+  <div class="menu">
+    <a href="adminView.html"><i class="fa fa-chart-line"></i> Dashboard</a>
+    <a href="refugees.html"><i class="fa fa-users"></i> Refugees</a>
+    <a href="doctor.html"><i class="fa fa-user-doctor"></i> Doctors</a>
+    <a href="volunteer.html"><i class="fa fa-hands-helping"></i> Volunteers</a>
+    <a href="coordinator.html"><i class="fa fa-user-tie"></i> Coordinators</a>
+    <a href="organization.html"><i class="fa fa-user-tie"></i> Organization</a>
+    <a href="shelter.html"><i class="fa fa-building"></i> Shelters</a>
+    <a href="camp.html"><i class="fa fa-campground"></i> Camps</a>
+    <a href="inventory.html"><i class="fa fa-warehouse"></i> Inventory</a>
+    <a href="aid.html"><i class="fa fa-box"></i> Aid Distribution</a>
+    <a href="donations-show.html"><i class="fa fa-hand-holding-dollar"></i> Donations</a>
+    <a href="medical.html"><i class="fa fa-file-medical"></i> Medical Records</a>
+    <a href="incidents.html"><i class="fa fa-exclamation-triangle"></i> Incidents</a>
+    <a href="critical.html"><i class="fa fa-heart-pulse"></i> Critical Patients</a>
+    <a onclick="logout()"><i class="fa fa-right-from-bracket"></i> Logout</a>
+  </div>
+</aside>
+
+  <!-- ======================  MAIN CONTENT  ====================== -->
+  <main class="content">
+
+    <!-- ------------------- Top‑bar ------------------- -->
+    <div class="topbar">
+  <div class="topbar-left">
+    <button class="icon-btn" id="sidebarToggle"><i class='bx bx-menu'></i></button>
+    <input type="search" placeholder="Search…">
+  </div>
+
+  <div class="profile">
+    <!-- Avatar – first letter of the stored user name -->
+    <div class="avatar" id="avatar">A</div>
+
+    <!-- Role – always ADMIN (filled by JS) -->
+    <span id="profileRole" class="role-badge">ADMIN</span>
+
+    <button class="icon-btn"><i class='bx bx-bell'></i></button>
+  </div>
+</div>
+
+    <!-- ------------------- Page header ------------------- -->
+    <header class="page-header">
+      <h2>Dashboard</h2>
+      <p class="muted">Quick overview of the most important metrics.</p>
+    </header>
+
+    <!-- ------------------- Statistic cards (without Users) ------------------- -->
+    <section class="cards-grid">
+      <!-- Total Donations -->
+      <article class="card">
+        <p class="stat-title">Total Donations</p>
+        <p class="stat-value" id="totalDonations">‑</p>
+      </article>
+
+      <!-- Total Aid Items -->
+      <article class="card">
+        <p class="stat-title">Total Aid Items</p>
+        <p class="stat-value" id="totalAid">‑</p>
+      </article>
+
+      <!-- Total Refugees (all) -->
+      <article class="card">
+        <p class="stat-title">Total Refugees</p>
+        <p class="stat-value" id="totalRefugees">‑</p>
+      </article>
+    </section>
+
+    <!-- ------------------- Toolbar (filters) ------------------- -->
+    <section class="toolbar">
+      <input type="search" placeholder="Filter latest donations…" id="donationFilter">
+      <input type="search" placeholder="Filter latest aid…" id="aidFilter">
+    </section>
+
+    <!-- ------------------- Latest Donations ------------------- -->
+    <section class="table-wrap">
+      <h3>Latest Monetary Donations</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Donor</th>
+            <th>Amount</th>
+            <th>Date</th>
+            <th>Org.</th>
+          </tr>
+        </thead>
+        <tbody id="donationsBody">
+          <tr class="empty-row"><td colspan="5">Loading…</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ------------------- Latest Aid Distributions ------------------- -->
+    <section class="table-wrap" style="margin-top:1.5rem;">
+      <h3>Latest Aid Distributions</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Item</th>
+            <th>Qty.</th>
+            <th>Date</th>
+            <th>Refugee</th>
+          </tr>
+        </thead>
+        <tbody id="aidBody">
+          <tr class="empty-row"><td colspan="5">Loading…</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+  </main>
+
+  <!-- ================================================================
+       SCRIPT – fetch data, render tables, filter, and stats
+       ================================================================ -->
+  <script>
+    const API_BASE = '/api';
+
+    // -----------------------------------------------------------------
+    // Helper – simple debounce for the filter inputs
+    // -----------------------------------------------------------------
+    const debounce = (fn, delay = 300) => {
+      let timer;
+      return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn(...args), delay);
+      };
+    };
+
+    // -----------------------------------------------------------------
+    // Helper – create a <tr> from an array of column values
+    // -----------------------------------------------------------------
+    const makeRow = (cols) => {
+      const tr = document.createElement('tr');
+      cols.forEach(c => {
+        const td = document.createElement('td');
+        td.innerHTML = c;
+        tr.appendChild(td);
+      });
+      return tr;
+    };
+
+    // -----------------------------------------------------------------
+    // Global in‑memory storage (used for client‑side filtering)
+    // -----------------------------------------------------------------
+    let allDonations = [];   // full donation list (from /api/donations)
+    let allAid       = [];   // full aid list (from /api/aid)
+
+    // -----------------------------------------------------------------
+    // 1️⃣ Load the statistic cards (donations, aid, refugees)
+    // -----------------------------------------------------------------
+    async function loadStats() {
+      // ----- Total Donations -------------------------------------------------
+      try {
+        const donRes = await fetch(`${API_BASE}/donations`);
+        const donations = await donRes.json();
+        document.getElementById('totalDonations').textContent = donations.length || 0;
+        allDonations = donations;               // keep for filtering
+        renderDonations(donations);            // initial render (full list)
+      } catch (e) {
+        console.error('Donations count error:', e);
+        document.getElementById('totalDonations').textContent = '—';
+      }
+
+      // ----- Total Aid Items -------------------------------------------------
+      try {
+        const aidRes = await fetch(`${API_BASE}/aid`);
+        const aids = await aidRes.json();
+        document.getElementById('totalAid').textContent = aids.length || 0;
+        allAid = aids;                         // keep for filtering
+        renderAid(aids);                       // initial render (full list)
+      } catch (e) {
+        console.error('Aid count error:', e);
+        document.getElementById('totalAid').textContent = '—';
+      }
+
+      // ----- Total Refugees (all rows) --------------------------------------
+      // Try a lightweight count endpoint first; fall back to full list if missing.
+      try {
+        const cntRes = await fetch(`${API_BASE}/refugees/count`);
+        if (cntRes.ok) {
+          const { count } = await cntRes.json();
+          document.getElementById('totalRefugees').textContent = count;
+        } else {
+          // fallback – fetch full list and count locally
+          const allRes = await fetch(`${API_BASE}/refugees`);
+          const all    = await allRes.json();
+          document.getElementById('totalRefugees').textContent = all.length;
+        }
+      } catch (e) {
+        console.error('Refugees count error:', e);
+        document.getElementById('totalRefugees').textContent = '—';
+      }
+    }
+
+    // -----------------------------------------------------------------
+    // 2️⃣ Render helpers (donations & aid)
+    // -----------------------------------------------------------------
+    function renderDonations(data) {
+      const tbody = document.getElementById('donationsBody');
+      tbody.innerHTML = '';
+
+      if (!data.length) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No donations found.</td></tr>';
+        return;
+      }
+
+      // Show only the 5 most recent rows (already ordered descending by DB)
+      const toShow = data.slice(0, 5);
+      toShow.forEach(d => {
+        const row = makeRow([
+          d.DONATION_ID,
+          d.DONOR_NAME,
+          `$${Number(d.AMOUNT).toLocaleString()}`,
+          new Date(d.DONATED_DATE).toLocaleDateString(),
+          d.NAME || '—'           // organization name (if you joined it in the query)
+        ]);
+        tbody.appendChild(row);
+      });
+    }
+
+    function renderAid(data) {
+      const tbody = document.getElementById('aidBody');
+      tbody.innerHTML = '';
+
+      if (!data.length) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No aid records found.</td></tr>';
+        return;
+      }
+
+      const toShow = data.slice(0, 5);
+      toShow.forEach(a => {
+        const row = makeRow([
+          a.DISTRIBUTION_ID,
+          a.ITEM_NAME,
+          a.QUANTITY,
+          new Date(a.DISTRIBUTION_DATE).toLocaleDateString(),
+          a.REFUGEE_NAME || '—'
+        ]);
+        tbody.appendChild(row);
+      });
+    }
+
+    // -----------------------------------------------------------------
+    // 3️⃣ Filtering logic (debounced)
+    // -----------------------------------------------------------------
+    const filterDonations = debounce(() => {
+      const term = document.getElementById('donationFilter').value.trim().toLowerCase();
+      if (!term) {
+        renderDonations(allDonations);
+        return;
+      }
+      const filtered = allDonations.filter(d =>
+        (d.DONOR_NAME && d.DONOR_NAME.toLowerCase().includes(term)) ||
+        (d.NAME && d.NAME.toLowerCase().includes(term))   // organization name
+      );
+      renderDonations(filtered);
+    });
+
+    const filterAid = debounce(() => {
+      const term = document.getElementById('aidFilter').value.trim().toLowerCase();
+      if (!term) {
+        renderAid(allAid);
+        return;
+      }
+      const filtered = allAid.filter(a =>
+        (a.ITEM_NAME && a.ITEM_NAME.toLowerCase().includes(term)) ||
+        (a.REFUGEE_NAME && a.REFUGEE_NAME.toLowerCase().includes(term))
+      );
+      renderAid(filtered);
+    });
+
+    // -----------------------------------------------------------------
+    // 4️⃣ Sidebar toggle (mobile)
+    // -----------------------------------------------------------------
+    document.getElementById('sidebarToggle')
+            .addEventListener('click', () => document.body.classList.toggle('hide-sidebar'));
+
+    // -----------------------------------------------------------------
+    // 5️⃣ Wire filter inputs
+    // -----------------------------------------------------------------
+    document.getElementById('donationFilter')
+            .addEventListener('input', filterDonations);
+    document.getElementById('aidFilter')
+            .addEventListener('input', filterAid);
+
+    // -----------------------------------------------------------------
+    // 6️⃣ Initialise everything
+    // -----------------------------------------------------------------
+    (async () => {
+      await loadStats();   // cards + tables + filters
+    })();
+  </script>
+</body>
+</html>

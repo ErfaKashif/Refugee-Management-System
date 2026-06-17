@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Donations – MyApp</title>
+  <link rel="stylesheet" href="login.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+</head>
+<body class="login-page">
+
+<main class="login-card">
+
+  <div class="brand login-brand-icon"><i class="fa-solid fa-donate"></i></div>
+  <p class="subtitle">Add a Monetary Donation</p>
+
+  <form id="donationForm" class="form-grid">
+
+    <!-- Donor Name -->
+    <div class="input-group">
+      <label for="donorName">Donor Name *</label>
+      <input type="text" id="donorName" name="donor_name"
+             placeholder="Your name" required>
+    </div>
+
+    <!-- Amount -->
+    <div class="input-group">
+      <label for="amount">Donation Amount *</label>
+      <input type="number" id="amount" name="amount"
+             min="1" step="0.01" placeholder="0.00" required
+             onkeydown="if(event.key==='-') event.preventDefault();"
+             oninput="if(this.value < 0) this.value = 0;">
+    </div>
+
+    <!-- Purpose -->
+    <div class="input-group">
+      <label for="purpose">Purpose (optional)</label>
+      <select id="purpose" name="purpose">
+        <option value="" disabled selected>Select purpose...</option>
+        <option value="FOOD">Food</option>
+        <option value="MEDICINE">Medicine</option>
+        <option value="SHELTER">Shelter</option>
+        <option value="GENERAL">General</option>
+      </select>
+    </div>
+
+    <!-- Organization — loaded dynamically from /api/orgs -->
+    <div class="input-group">
+      <label for="organization_id">Donate to Organization *</label>
+      <select id="organization_id" name="organization_id" required>
+        <option value="" disabled selected>Loading organizations...</option>
+      </select>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Save Donation</button>
+
+    <div class="status-message" id="formMsg"></div>
+  </form>
+
+</main>
+
+<script>
+  const API = "http://localhost:3000";
+  const fmt = n => `$${Number(n).toLocaleString()}`;
+
+  // ── Load organizations into dropdown on page load ──────────
+  async function loadOrganizations() {
+    const select = document.getElementById('organization_id');
+    try {
+      const res  = await fetch(`${API}/api/orgs`);
+      const data = await res.json();
+
+      if (!Array.isArray(data) || !data.length) {
+        select.innerHTML = `<option value="" disabled selected>No organizations found</option>`;
+        return;
+      }
+
+      // Oracle returns NAME column (not ORG_NAME)
+      select.innerHTML = `<option value="" disabled selected>Select an organization...</option>` +
+        data.map(o => `<option value="${o.ORG_ID}">${o.NAME} (ID: ${o.ORG_ID})</option>`).join('');
+
+    } catch (err) {
+      console.error('Failed to load organizations:', err);
+      select.innerHTML = `<option value="" disabled selected>Failed to load organizations</option>`;
+    }
+  }
+
+  // ── Submit handler ─────────────────────────────────────────
+  const form = document.getElementById('donationForm');
+  const msg  = document.getElementById('formMsg');
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    msg.textContent = ''; msg.className = 'status-message';
+
+    const payload = {
+      donor_name: document.getElementById('donorName').value.trim(),
+      amount:     Number(document.getElementById('amount').value),
+      purpose:    document.getElementById('purpose').value || null,
+      org_id:     Number(document.getElementById('organization_id').value)
+    };
+
+    if (!payload.donor_name) {
+      msg.textContent = 'Donor name is required';
+      msg.className = 'status-message error'; return;
+    }
+    if (isNaN(payload.amount) || payload.amount <= 0) {
+      msg.textContent = 'Amount must be a positive number';
+      msg.className = 'status-message error'; return;
+    }
+    if (!payload.org_id) {
+      msg.textContent = 'Please select an organization';
+      msg.className = 'status-message error'; return;
+    }
+
+    try {
+      const response = await fetch(`${API}/api/donations`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        msg.textContent = data.message || `Donation of ${fmt(payload.amount)} saved successfully`;
+        msg.className   = 'status-message success';
+        form.reset();
+        // Reload orgs so dropdown shows again after reset
+        loadOrganizations();
+      } else {
+        msg.textContent = data.error || 'Could not save donation';
+        msg.className   = 'status-message error';
+      }
+    } catch (err) {
+      console.error(err);
+      msg.textContent = 'Network error – please try again later';
+      msg.className   = 'status-message error';
+    }
+  });
+
+  // ── Init ───────────────────────────────────────────────────
+  loadOrganizations();
+</script>
+</body>
+</html>

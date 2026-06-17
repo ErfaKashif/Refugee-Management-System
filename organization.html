@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Organizations – Admin</title>
+<link rel="stylesheet" href="donation.css">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+<style>
+  .crud-section{display:none;background:#fff;border:1px solid #dbe3ef;border-radius:14px;padding:1.2rem;margin-bottom:1rem;}
+  .crud-section.show{display:block;}
+  .crud-section h3{margin:0 0 0.8rem;color:#1e3a8a;border-bottom:2px solid #60a5fa;padding-bottom:0.4rem;}
+  .crud-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.6rem;}
+  .action-bar{display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem;padding:0.8rem;background:#fff;border:1px solid #dbe3ef;border-radius:14px;}
+  .status-message{padding:0.6rem 1rem;border-radius:8px;margin-bottom:0.8rem;display:none;font-size:0.9rem;}
+  .status-message.show{display:block;}
+  .status-message.success{background:#dcfce7;color:#166534;border:1px solid #bbf7d0;}
+  .status-message.error{background:#fee2e2;color:#991b1b;border:1px solid #fecaca;}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ── SIDEBAR (exact match — unchanged) ── -->
+<aside class="sidebar">
+  <div class="brand"><i class="fa-solid fa-shield-halved"></i><h1>Admin</h1></div>
+  <div class="menu">
+    <a href="adminView.html"><i class="fa fa-chart-line"></i> Dashboard</a>
+    <a href="refugees.html"><i class="fa fa-users"></i> Refugees</a>
+    <a href="doctor.html"><i class="fa fa-user-doctor"></i> Doctors</a>
+    <a href="volunteer.html"><i class="fa fa-hands-helping"></i> Volunteers</a>
+    <a href="coordinator.html"><i class="fa fa-user-tie"></i> Coordinators</a>
+    <a class="active"><i class="fa fa-sitemap"></i> Organizations</a>
+    <a href="shelter.html"><i class="fa fa-building"></i> Shelters</a>
+    <a href="camp.html"><i class="fa fa-campground"></i> Camps</a>
+    <a href="inventory.html"><i class="fa fa-warehouse"></i> Inventory</a>
+    <a href="aid.html"><i class="fa fa-box"></i> Aid Distribution</a>
+    <a href="donations-show.html"><i class="fa fa-hand-holding-dollar"></i> Donations</a>
+    <a href="medical.html"><i class="fa fa-file-medical"></i> Medical Records</a>
+    <a href="incidents.html"><i class="fa fa-exclamation-triangle"></i> Incidents</a>
+    <a href="critical.html"><i class="fa fa-heart-pulse"></i> Critical Patients</a>
+    <a onclick="logout()"><i class="fa fa-right-from-bracket"></i> Logout</a>
+  </div>
+</aside>
+
+<main class="content">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <h3>Organizations</h3>
+    <div class="profile">
+      <div class="avatar">A</div>
+      <span id="info">Admin</span>
+    </div>
+  </div>
+
+  <!-- ACTION BAR -->
+  <div class="action-bar">
+    <button class="btn btn-primary" onclick="showAddOrg()"><i class="fa fa-plus"></i> Add Organization</button>
+    <button class="btn btn-soft"    onclick="toggleSearch()"><i class="fa fa-magnifying-glass"></i> Search</button>
+    <button class="btn btn-soft"    onclick="loadOrganizations()"><i class="fa fa-refresh"></i> Refresh</button>
+  </div>
+
+  <!-- CRUD FORM -->
+  <div class="crud-section" id="crudSection">
+    <h3 id="crudTitle">Form</h3>
+    <div class="crud-form" id="crudForm"></div>
+  </div>
+
+  <!-- SEARCH -->
+  <div class="card" id="searchBox" style="display:none;margin-bottom:1rem;">
+    <h3>Search Organizations</h3>
+    <div class="toolbar">
+      <input id="searchInput" placeholder="Search by name, phone or email...">
+      <select id="searchType">
+        <option value="name">By Name</option>
+        <option value="id">By ID</option>
+      </select>
+      <button class="btn btn-primary" onclick="handleSearch()">Search</button>
+      <button class="btn btn-soft"    onclick="clearSearch()">Clear</button>
+    </div>
+  </div>
+
+  <!-- STATUS -->
+  <div id="statusMsg" class="status-message"></div>
+
+  <!-- STATS -->
+  <div class="cards-grid">
+    <div class="card">
+      <p class="stat-title">Total Organizations</p>
+      <p class="stat-value" id="count">0</p>
+    </div>
+    <div class="card">
+      <p class="stat-title">Total Donations Received</p>
+      <p class="stat-value" id="totalDonations">-</p>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <!-- NOTE: DB has no ORG_TYPE column — removed that column from table -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Org ID</th>
+          <th>Name</th>
+          <th>Phone</th>
+          <th>Email</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <tr><td colspan="5" class="empty-row">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+</div>
+
+<script>
+const API   = "http://localhost:3000";
+const token = localStorage.getItem("token");
+const role  = localStorage.getItem("role");
+
+if (!token || role !== "admin") {
+  alert("Access denied.");
+  window.location.href = "login.html";
+}
+
+document.getElementById("info").innerText = "Admin: " + (localStorage.getItem("username") || "");
+
+// ── Fetch Helper ───────────────────────────────────────────
+async function apiFetch(url, options = {}) {
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token,
+      ...(options.headers || {})
+    }
+  });
+  return await res.json();
+}
+
+// ── Status Message ─────────────────────────────────────────
+function setStatus(msg, type = "success") {
+  const el = document.getElementById("statusMsg");
+  el.textContent = msg;
+  el.className = `status-message show ${type}`;
+  setTimeout(() => { el.className = "status-message"; }, 4000);
+}
+
+// ── CRUD Helpers ───────────────────────────────────────────
+function showCrud(title, html) {
+  document.getElementById("crudTitle").innerText = title;
+  document.getElementById("crudForm").innerHTML  = html;
+  document.getElementById("crudSection").classList.add("show");
+  document.getElementById("crudSection").scrollIntoView({ behavior: "smooth" });
+}
+
+function hideCrud() {
+  document.getElementById("crudSection").classList.remove("show");
+}
+
+function toggleSearch() {
+  const box = document.getElementById("searchBox");
+  box.style.display = box.style.display === "none" ? "block" : "none";
+}
+
+// ── Render Table ───────────────────────────────────────────
+// Oracle returns NAME not ORG_NAME — use NAME column
+function renderRows(data) {
+  const body = document.getElementById("tableBody");
+  document.getElementById("count").innerText = data.length;
+
+  if (!data.length) {
+    body.innerHTML = `<tr><td colspan="5" class="empty-row">No organizations found</td></tr>`;
+    return;
+  }
+
+  body.innerHTML = data.map(o => `
+    <tr>
+      <td>${o.ORG_ID}</td>
+      <td>${o.NAME  ?? '-'}</td>
+      <td>${o.PHONE ?? '-'}</td>
+      <td>${o.EMAIL ?? '-'}</td>
+      <td>
+        <button class="btn btn-primary" onclick="showEditOrg(
+          ${o.ORG_ID},
+          '${(o.NAME  ?? '').replace(/'/g,"\\'")}',
+          '${(o.PHONE ?? '').replace(/'/g,"\\'")}',
+          '${(o.EMAIL ?? '').replace(/'/g,"\\'")}')">Edit</button>
+        <button class="btn btn-danger" onclick="deleteOrg(${o.ORG_ID})">Delete</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// ── Load All ───────────────────────────────────────────────
+async function loadOrganizations() {
+  hideCrud();
+  document.getElementById("searchBox").style.display = "none";
+
+  const data = await apiFetch(`${API}/api/orgs`);
+
+  // Total donations stat
+  try {
+    const donations = await apiFetch(`${API}/api/donations`);
+    if (Array.isArray(donations)) {
+      const total = donations.reduce((s, d) => s + (d.AMOUNT || 0), 0);
+      document.getElementById("totalDonations").innerText = "$" + total.toLocaleString();
+    }
+  } catch(e) {
+    document.getElementById("totalDonations").innerText = "-";
+  }
+
+  if (!Array.isArray(data)) {
+    setStatus(data.error || "Failed to load organizations", "error");
+    return;
+  }
+
+  renderRows(data);
+}
+
+// ── Add Organization ───────────────────────────────────────
+function showAddOrg() {
+  showCrud("Add New Organization", `
+    <div class="input-group">
+      <label>Organization Name *</label>
+      <input id="ao_name" placeholder="Organization Name" required>
+    </div>
+    <div class="input-group">
+      <label>Phone</label>
+      <input id="ao_phone" placeholder="Phone Number">
+    </div>
+    <div class="input-group">
+      <label>Email</label>
+      <input id="ao_email" placeholder="Email Address" type="email">
+    </div>
+    <div style="display:flex;gap:0.5rem;align-self:end;">
+      <button class="btn btn-primary" onclick="submitAddOrg()"><i class="fa fa-check"></i> Save</button>
+      <button class="btn btn-soft"    onclick="hideCrud()">Cancel</button>
+    </div>
+  `);
+}
+
+async function submitAddOrg() {
+  const name  = document.getElementById("ao_name").value.trim();
+  const phone = document.getElementById("ao_phone").value.trim();
+  const email = document.getElementById("ao_email").value.trim();
+
+  if (!name) return setStatus("Organization name is required", "error");
+
+  // Controller destructures: { name, phone, email } — all lowercase
+  const d = await apiFetch(`${API}/api/orgs`, {
+    method: "POST",
+    body: JSON.stringify({
+      name:  name,
+      phone: phone || null,
+      email: email || null
+    })
+  });
+
+  if (d.error) return setStatus(d.error, "error");
+  setStatus(d.message || "Organization added successfully", "success");
+  hideCrud();
+  loadOrganizations();
+}
+
+// ── Edit Organization ──────────────────────────────────────
+function showEditOrg(id, curName, curPhone, curEmail) {
+  showCrud("Edit Organization #" + id, `
+    <div class="input-group">
+      <label>Organization Name *</label>
+      <input id="eo_name" value="${curName}" required>
+    </div>
+    <div class="input-group">
+      <label>Phone</label>
+      <input id="eo_phone" value="${curPhone}">
+    </div>
+    <div class="input-group">
+      <label>Email</label>
+      <input id="eo_email" value="${curEmail}" type="email">
+    </div>
+    <div style="display:flex;gap:0.5rem;align-self:end;">
+      <button class="btn btn-primary" onclick="submitEditOrg(${id})"><i class="fa fa-check"></i> Update</button>
+      <button class="btn btn-soft"    onclick="hideCrud()">Cancel</button>
+    </div>
+  `);
+}
+
+async function submitEditOrg(id) {
+  const name  = document.getElementById("eo_name").value.trim();
+  const phone = document.getElementById("eo_phone").value.trim();
+  const email = document.getElementById("eo_email").value.trim();
+
+  if (!name) return setStatus("Organization name is required", "error");
+
+  // Controller destructures: { name, phone, email } — all lowercase
+  const d = await apiFetch(`${API}/api/orgs/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({
+      name:  name,
+      phone: phone || null,
+      email: email || null
+    })
+  });
+
+  if (d.error) return setStatus(d.error, "error");
+  setStatus(d.message || "Organization updated successfully", "success");
+  hideCrud();
+  loadOrganizations();
+}
+
+// ── Delete ─────────────────────────────────────────────────
+async function deleteOrg(id) {
+  if (!confirm(`Delete Organization #${id}?\n\nThis will also affect linked donations.`)) return;
+
+  const d = await apiFetch(`${API}/api/orgs/${id}`, { method: "DELETE" });
+  if (d.error) return setStatus(d.error, "error");
+  setStatus(d.message || "Organization deleted", "success");
+  loadOrganizations();
+}
+
+// ── Search ─────────────────────────────────────────────────
+async function handleSearch() {
+  const term = document.getElementById("searchInput").value.trim();
+  const type = document.getElementById("searchType").value;
+  if (!term) return setStatus("Enter a search term", "error");
+
+  if (type === "id") {
+    // Search by ID — hits GET /api/orgs/:id
+    const d = await apiFetch(`${API}/api/orgs/${term}`);
+    if (d.error) return setStatus(d.error, "error");
+    renderRows([d]);
+    return;
+  }
+
+  // Search by name/phone/email — hits GET /api/orgs/search?q=term
+  const data = await apiFetch(`${API}/api/orgs/search?q=${encodeURIComponent(term)}`);
+  if (!Array.isArray(data)) return setStatus(data.error || "Search failed", "error");
+  renderRows(data);
+}
+
+function clearSearch() {
+  document.getElementById("searchInput").value = "";
+  loadOrganizations();
+}
+
+// ── Logout ─────────────────────────────────────────────────
+function logout() {
+  localStorage.clear();
+  window.location.href = "login.html";
+}
+
+// ── Init ───────────────────────────────────────────────────
+loadOrganizations();
+</script>
+</body>
+</html>

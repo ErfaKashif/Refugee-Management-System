@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Donations</title>
+<link rel="stylesheet" href="login.css">
+</head>
+
+<body class="app">
+
+<!-- ================= SIDEBAR ================= -->
+<aside class="sidebar">
+  <div class="brand"><i class="fa-solid fa-shield-halved"></i><h1>Admin</h1></div>
+  <div class="menu">
+    <a href="adminView.html"><i class="fa fa-chart-line"></i> Dashboard</a>
+    <a href="refugees.html"><i class="fa fa-users"></i> Refugees</a>
+    <a href="doctor.html"><i class="fa fa-user-doctor"></i> Doctors</a>
+    <a href="volunteer.html"><i class="fa fa-hands-helping"></i> Volunteers</a>
+    <a href="coordinator.html"><i class="fa fa-user-tie"></i> Coordinators</a>
+    <a href="organization.html"><i class="fa fa-user-tie"></i> Organization</a>
+    <a href="shelter.html"><i class="fa fa-building"></i> Shelters</a>
+    <a href="camp.html"><i class="fa fa-campground"></i> Camps</a>
+    <a href="inventory.html"><i class="fa fa-warehouse"></i> Inventory</a>
+    <a href="aid.html"><i class="fa fa-box"></i> Aid Distribution</a>
+    <a href="donations-show.html"><i class="fa fa-hand-holding-dollar"></i> Donations</a>
+    <a href="medical.html"><i class="fa fa-file-medical"></i> Medical Records</a>
+    <a href="incidents.html"><i class="fa fa-exclamation-triangle"></i> Incidents</a>
+    <a href="critical.html"><i class="fa fa-heart-pulse"></i> Critical Patients</a>
+    <a onclick="logout()"><i class="fa fa-right-from-bracket"></i> Logout</a>
+  </div>
+</aside>
+<!-- ================= CONTENT ================= -->
+<main class="content">
+
+  <!-- TOPBAR (uses your system exactly) -->
+  <div class="topbar">
+
+    <div class="topbar-left">
+      <button class="icon-btn" id="toggleSidebar">☰</button>
+      <h3>Donations</h3>
+    </div>
+
+    <div class="profile">
+      <div class="avatar">A</div>
+      <span>Admin</span>
+    </div>
+
+  </div>
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <h2>All Monetary Donations</h2>
+  </div>
+
+  <!-- TABLE WRAP (YOUR CSS COMPONENT) -->
+  <div class="table-wrap">
+
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Donor</th>
+          <th>Organization</th>
+          <th>Amount</th>
+          <th>Date</th>
+          <th>Purpose</th>
+        </tr>
+      </thead>
+
+      <tbody id="donationsBody">
+        <tr>
+          <td colspan="6" class="empty-row">Loading...</td>
+        </tr>
+      </tbody>
+
+    </table>
+
+  </div>
+
+</main>
+
+<script>
+const API_BASE = "/api";
+
+const loadDonations = async () => {
+  const tbody = document.getElementById("donationsBody");
+
+  try {
+    const res = await fetch(`${API_BASE}/donations`);
+    const data = await res.json();
+
+    tbody.innerHTML = "";
+
+    if (!data.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="empty-row">No donations found</td></tr>`;
+      return;
+    }
+
+    data.forEach(d => {
+      const row = document.createElement("tr");
+
+      row.innerHTML = `
+        <td>${d.DONATION_ID}</td>
+        <td>${d.DONOR_NAME || "-"}</td>
+        <td>${d.NAME || "-"}</td>
+        <td>${d.AMOUNT}</td>
+        <td>${d.DONATED_DATE ? new Date(d.DONATED_DATE).toLocaleDateString() : ""}</td>
+        <td>${d.PURPOSE || ""}</td>
+      `;
+
+      tbody.appendChild(row);
+    });
+
+  } catch (err) {
+    console.error(err);
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-row">Error loading data</td></tr>`;
+  }
+};
+
+document.addEventListener("DOMContentLoaded", loadDonations);
+
+/* sidebar toggle (uses your system class) */
+document.getElementById("toggleSidebar").addEventListener("click", () => {
+  document.body.classList.toggle("hide-sidebar");
+});
+</script>
+
+</body>
+</html>

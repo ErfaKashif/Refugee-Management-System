@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Critical Patients</title>
+<link rel="stylesheet" href="donation.css">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+</head>
+
+<body>
+<div class="app">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="brand">
+    <i class="fa-solid fa-shield-halved"></i>
+    <h1>Admin</h1>
+  </div>
+
+  <div class="menu">
+    <a href="adminView.html"><i class="fa fa-chart-line"></i> Dashboard</a>
+    <a href="refugees.html"><i class="fa fa-users"></i> Refugees</a>
+    <a href="doctor.html"><i class="fa fa-user-doctor"></i> Doctors</a>
+    <a href="volunteer.html"><i class="fa fa-hands-helping"></i> Volunteers</a>
+    <a href="coordinator.html"><i class="fa fa-user-tie"></i> Coordinators</a>
+    <a href="organization.html"><i class="fa fa-user-tie"></i> Organization</a>
+    <a href="shelter.html"><i class="fa fa-building"></i> Shelters</a>
+    <a href="camp.html"><i class="fa fa-campground"></i> Camps</a>
+    <a href="inventory.html"><i class="fa fa-warehouse"></i> Inventory</a>
+    <a href="aid.html"><i class="fa fa-box"></i> Aid Distribution</a>
+    <a href="donations-show.html"><i class="fa fa-hand-holding-dollar"></i> Donations</a>
+    <a href="medical.html"><i class="fa fa-file-medical"></i> Medical Records</a>
+    <a href="incidents.html"><i class="fa fa-exclamation-triangle"></i> Incidents</a>
+    <a href="critical.html" class="active"><i class="fa fa-heart-pulse"></i> Critical Patients</a>
+    <a onclick="logout()"><i class="fa fa-right-from-bracket"></i> Logout</a>
+  </div>
+</aside>
+<!-- MAIN -->
+<main class="content">
+
+  <div class="topbar">
+    <h3>Critical Patients</h3>
+    <div class="profile">
+      <div class="avatar">A</div>
+      <span id="info">Admin</span>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Ref ID</th>
+          <th>Name</th>
+          <th>Nationality</th>
+          <th>Shelter ID</th>
+          <th>Condition</th>
+          <th>Treatment</th>
+          <th>Date</th>
+          <th>Doctor</th>
+          <th>Specialization</th>
+          <th>Location</th>
+        </tr>
+      </thead>
+
+      <tbody id="tableBody">
+        <tr><td colspan="10">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+</div>
+
+<script>
+const API = "http://localhost:3000";
+const token = localStorage.getItem("token");
+
+document.getElementById("info").innerText =
+  "Admin: " + (localStorage.getItem("username") || "");
+
+async function apiFetch(url) {
+  const res = await fetch(url, {
+    headers: {
+      "Authorization": "Bearer " + token
+    }
+  });
+  return res.json();
+}
+
+async function loadCriticalPatients() {
+  const data = await apiFetch(`${API}/api/refugees/critical`);
+
+  const body = document.getElementById("tableBody");
+
+  if (!Array.isArray(data) || data.length === 0) {
+    body.innerHTML = `<tr><td colspan="10">No critical patients found</td></tr>`;
+    return;
+  }
+
+  body.innerHTML = data.map(p => `
+    <tr>
+      <td>${p.REFUGEE_ID}</td>
+      <td>${p.NAME}</td>
+      <td>${p.NATIONALITY}</td>
+      <td>${p.SHELTER_ID}</td>
+      <td>${p.CONDITION || '-'}</td>
+      <td>${p.TREATMENT || '-'}</td>
+      <td>${p.DATE_RECORDED || '-'}</td>
+      <td>${p.DOCTOR_NAME || '-'}</td>
+      <td>${p.SPECIALIZATION || '-'}</td>
+      <td>${p.SHELTER_NAME || '-'}</td>
+    </tr>
+  `).join('');
+}
+
+function logout() {
+  localStorage.clear();
+  window.location.href = "login.html";
+}
+
+loadCriticalPatients();
+</script>
+
+</body>
+</html>

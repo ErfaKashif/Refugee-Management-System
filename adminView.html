@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Admin Panel</title>
+<link rel="stylesheet" href="donation.css">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+<style>
+  /* Action buttons bar */
+  .action-bar {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+    padding: 0.8rem;
+    background: #fff;
+    border: 1px solid #dbe3ef;
+    border-radius: 14px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+  }
+  .action-bar .btn {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  /* CRUD Form Section */
+  .crud-section {
+    display: none;
+    background: #fff;
+    border: 1px solid #dbe3ef;
+    border-radius: 14px;
+    padding: 1.2rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+  }
+  .crud-section.show { display: block; }
+  .crud-section h3 {
+    margin: 0 0 0.8rem;
+    font-size: 1rem;
+    color: #1e3a8a;
+    border-bottom: 2px solid #60a5fa;
+    padding-bottom: 0.4rem;
+  }
+  .crud-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.6rem;
+  }
+  .crud-form input,
+  .crud-form select {
+    padding: 0.5rem 0.7rem;
+    font-size: 0.85rem;
+  }
+  .crud-form .btn {
+    align-self: end;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="brand">
+    <i class="fa-solid fa-shield-halved"></i>
+    <h1>Admin</h1>
+  </div>
+  <div class="menu">
+    <a onclick="loadDashboard()" class="active" id="nav-dashboard"><i class="fa fa-chart-line"></i> Dashboard</a>
+    <a onclick="loadAllRefugees()" id="nav-refugees"><i class="fa fa-users"></i> Refugees</a>
+    <a onclick="loadDoctors()" id="nav-doctors"><i class="fa fa-user-doctor"></i> Doctors</a>
+    <a onclick="loadVolunteers()" id="nav-volunteers"><i class="fa fa-hands-helping"></i> Volunteers</a>
+    <a onclick="loadCoordinators()" id="nav-coordinators"><i class="fa fa-user-tie"></i> Coordinators</a>
+    <a onclick="loadShelters()" id="nav-shelters"><i class="fa fa-building"></i> Shelters</a>
+    <a onclick="loadCamps()" id="nav-camps"><i class="fa fa-campground"></i> Camps</a>
+    <a onclick="loadOrganizations()" id="nav-orgs"><i class="fa fa-sitemap"></i> Organizations</a>
+    <a onclick="loadInventory()" id="nav-inventory"><i class="fa fa-warehouse"></i> Inventory</a>
+    <a onclick="loadAidDistributions()" id="nav-aid"><i class="fa fa-box"></i> Aid Distribution</a>
+    <a onclick="loadDonations()" id="nav-donations"><i class="fa fa-hand-holding-dollar"></i> Donations</a>
+    <a onclick="loadMedicalRecords()" id="nav-medical"><i class="fa fa-file-medical"></i> Medical Records</a>
+    <a onclick="loadIncidents()" id="nav-incidents"><i class="fa fa-exclamation-triangle"></i> Incidents</a>
+    <a onclick="loadCriticalPatients()" id="nav-critical"><i class="fa fa-heart-pulse"></i> Critical Patients</a>
+    <a onclick="logout()"><i class="fa fa-right-from-bracket"></i> Logout</a>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="content">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <h3 id="pageTitle">Dashboard</h3>
+    </div>
+    <div class="profile">
+      <div class="avatar">A</div>
+      <span id="info">Admin</span>
+    </div>
+  </div>
+
+  <!-- ACTION BUTTONS BAR -->
+  <div class="action-bar" id="actionBar" style="display:none;"></div>
+
+  <!-- CRUD FORM SECTION -->
+  <div class="crud-section" id="crudSection">
+    <h3 id="crudTitle">Form</h3>
+    <div class="crud-form" id="crudForm"></div>
+  </div>
+
+  <!-- SEARCH -->
+  <div class="card" id="searchBox" style="display:none; margin-bottom:15px;">
+    <h3>Search</h3>
+    <div class="toolbar">
+      <input id="searchInput" placeholder="Search term...">
+      <button class="btn btn-primary" onclick="handleSearch()">Search</button>
+      <button class="btn btn-soft" onclick="clearSearch()">Clear</button>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="cards-grid" id="statsGrid"></div>
+
+  <!-- TABLE -->
+  <div class="table-wrap">
+    <table>
+      <thead><tr id="tableHead"><th>Loading...</th></tr></thead>
+      <tbody id="tableBody">
+        <tr><td class="empty-row">Select a section from the sidebar</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="padding:0.4rem;color:#64748b;font-size:0.8rem;">
+    Records: <span id="count">0</span>
+  </div>
+
+</main>
+</div>
+
+<script>
+const API      = "http://localhost:3000";
+const token    = localStorage.getItem("token");
+const role     = localStorage.getItem("role");
+const username = localStorage.getItem("username");
+
+if (!token || role !== "admin") {
+  alert("Access denied. Admin login required.");
+  window.location.href = "login.html";
+}
+document.getElementById("info").innerText = "Admin: " + (username || "");
+
+let currentSection = "";
+
+// ── Helpers ────────────────────────────────────────────────
+async function apiFetch(url, options = {}) {
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token,
+      ...(options.headers || {})
+    }
+  });
+  return await res.json();
+}
+
+function setNav(id) {
+  document.querySelectorAll(".menu a").forEach(a => a.classList.remove("active"));
+  const el = document.getElementById("nav-" + id);
+  if (el) el.classList.add("active");
+}
+
+function setHeaders(h) {
+  document.getElementById("tableHead").innerHTML = h.map(x => `<th>${x}</th>`).join('');
+}
+
+function setCount(n) { document.getElementById("count").innerText = n; }
+
+function showActions(buttons) {
+  const bar = document.getElementById("actionBar");
+  bar.style.display = "flex";
+  bar.innerHTML = buttons;
+}
+
+function hideActions() {
+  document.getElementById("actionBar").style.display = "none";
+}
+
+function showCrud(title, formHtml) {
+  const section = document.getElementById("crudSection");
+  document.getElementById("crudTitle").innerText = title;
+  document.getElementById("crudForm").innerHTML = formHtml;
+  section.classList.add("show");
+  section.scrollIntoView({ behavior: "smooth" });
+}
+
+function hideCrud() {
+  document.getElementById("crudSection").classList.remove("show");
+}
+
+function showSearch() { document.getElementById("searchBox").style.display = "block"; }
+function hideSearch() { document.getElementById("searchBox").style.display = "none"; }
+
+function resetCards() {
+  document.getElementById("statsGrid").innerHTML = "";
+}
+
+// ── DASHBOARD ──────────────────────────────────────────────
+async function loadDashboard() {
+  currentSection = "dashboard";
+  setNav("dashboard");
+  document.getElementById("pageTitle").innerText = "Dashboard";
+  hideActions(); hideCrud(); hideSearch();
+
+  const [refugees, doctors, volunteers, shelters, camps, orgs] = await Promise.all([
+    apiFetch(`${API}/api/refugees`),
+    apiFetch(`${API}/api/doctors`),
+    apiFetch(`${API}/api/volunteers`),
+    apiFetch(`${API}/api/shelters`),
+    apiFetch(`${API}/api/camps`),
+    apiFetch(`${API}/api/orgs`)
+  ]);
+
+  const c = d => Array.isArray(d) ? d.length : 0;
+
+  document.getElementById("statsGrid").innerHTML = `
+    <div class="card"><p class="stat-title">Refugees</p><p class="stat-value">${c(refugees)}</p></div>
+    <div class="card"><p class="stat-title">Doctors</p><p class="stat-value">${c(doctors)}</p></div>
+    <div class="card"><p class="stat-title">Volunteers</p><p class="stat-value">${c(volunteers)}</p></div>
+    <div class="card"><p class="stat-title">Shelters</p><p class="stat-value">${c(shelters)}</p></div>
+    <div class="card"><p class="stat-title">Camps</p><p class="stat-value">${c(camps)}</p></div>
+    <div class="card"><p class="stat-title">Organizations</p><p class="stat-value">${c(orgs)}</p></div>
+  `;
+
+  setHeaders(["Section", "Total"]);
+  document.getElementById("tableBody").innerHTML = `
+    <tr><td>Refugees</td><td>${c(refugees)}</td></tr>
+    <tr><td>Doctors</td><td>${c(doctors)}</td></tr>
+    <tr><td>Volunteers</td><td>${c(volunteers)}</td></tr>
+    <tr><td>Shelters</td><td>${c(shelters)}</td></tr>
+    <tr><td>Camps</td><td>${c(camps)}</td></tr>
+    <tr><td>Organizations</td><td>${c(orgs)}</td></tr>
+  `;
+  setCount(6);
+}
+
+// ══════════════════════════════════════════════════════════
+// ██ REFUGEES
+// ══════════════════════════════════════════════════════════
+async function loadAllRefugees() {
+  currentSection = "refugees";
+  setNav("refugees");
+  document.getElementById("pageTitle").innerText = "Refugees";
+  hideCrud(); showSearch(); resetCards();
+
+  showActions(`
+    <button class="btn btn-primary" onclick="showAddRefugee()"><i class="fa fa-plus"></i> Add Refugee</button>
+    <button class="btn btn-soft" onclick="showAssignShelter()"><i class="fa fa-building"></i> Assign to Shelter</button>
+  `);
+
+  const data = await apiFetch(`${API}/api/refugees`);
+  setHeaders(["ID","Name","DOB","Gender","Nationality","Status","Vulnerability","Family","Camp","Shelter","Actions"]);
+  renderRefugees(data);
+}
+
+function renderRefugees(data) {
+  const body = document.getElementById("tableBody");
+  setCount(Array.isArray(data) ? data.length : 0);
+  if (!Array.isArray(data) || !data.length) {
+    body.innerHTML = `<tr><td colspan="11" class="empty-row">No refugees found</td></tr>`;
+    return;
+  }
+  body.innerHTML = data.map(r => `<tr>
+    <td>${r.REFUGEE_ID}</td>
+    <td>${r.NAME ?? '-'}</td>
+    <td>${r.DOB ? new Date(r.DOB).toLocaleDateString() : '-'}</td>
+    <td>${r.GENDER === 'M' ? 'Male' : r.GENDER === 'F' ? 'Female' : r.GENDER ?? '-'}</td>
+    <td>${r.NATIONALITY ?? '-'}</td>
+    <td><span class="status ok">${r.STATUS ?? 'ACTIVE'}</span></td>
+    <td>${r.VULNERABILITY ?? 'None'}</td>
+    <td>${r.HAS_FAMILY === 'Y' ? 'Yes' : 'No'}</td>
+    <td>${r.CAMP_NAME ?? 'Unassigned'}</td>
+    <td>${r.SHELTER_ID ?? '-'}</td>
+    <td>
+      <button class="btn btn-primary" onclick="showEditRefugee(${r.REFUGEE_ID})">Edit</button>
+      <button class="btn btn-danger" onclick="deleteRefugee(${r.REFUGEE_ID})">Delete</button>
+    </td>
+  </tr>`).join('');
+}
+
+function showAddRefugee() {
+  showCrud("Add New Refugee", `
+    <input id="cr_name" placeholder="Full Name" required>
+    <input id="cr_dob" type="date" placeholder="DOB">
+    <select id="cr_gender"><option value="">Gender</option><option value="M">Male</option><option value="F">Female</option></select>
+    <input id="cr_nationality" placeholder="Nationality">
+    <input id="cr_vulnerability" placeholder="Vulnerability (optional)">
+    <select id="cr_family"><option value="N">No Family</option><option value="Y">Has Family</option></select>
+    <input id="cr_shelter" placeholder="Shelter ID" type="number">
+    <button class="btn btn-primary" onclick="submitAddRefugee()">Save Refugee</button>
+    <button class="btn btn-soft" onclick="hideCrud()">Cancel</button>
+  `);
+}
+
+function submitAddRefugee() {
+  const name = document.getElementById("cr_name").value;
+  const dob = document.getElementById("cr_dob").value;
+  const gender = document.getElementById("cr_gender").value;
+  const nationality = document.getElementById("cr_nationality").value;
+  const vulnerability = document.getElementById("cr_vulnerability").value;
+  const has_family = document.getElementById("cr_family").value;
+  const shelter_id = document.getElementById("cr_shelter").value;
+
+  if (!name || !dob || !gender || !nationality || !shelter_id)
+    return alert("Name, DOB, Gender, Nationality and Shelter ID are required");
+
+  apiFetch(`${API}/api/refugees`, {
+    method: "POST",
+    body: JSON.stringify({ name, dob, gender, nationality, vulnerability, has_family, shelter_id })
+  }).then(d => { alert(d.message || d.error); hideCrud(); loadAllRefugees(); });
+}
+
+function showEditRefugee(id) {
+  showCrud("Edit Refugee #" + id, `
+    <input id="er_name" placeholder="New Name (blank=skip)">
+    <select id="er_status"><option value="">Status (skip)</option><option value="ACTIVE">ACTIVE</option><option value="DEPARTED">DEPARTED</option></select>
+    <input id="er_vulnerability" placeholder="Vulnerability (blank=skip)">
+    <button class="btn btn-primary" onclick="submitEditRefugee(${id})">Update</button>
+    <button class="btn btn-soft" onclick="hideCrud()">Cancel</button>
+  `);
+}
+
+function submitEditRefugee(id) {
+  const b = {};
+  const name = document.getElementById("er_name").value;
+  const status = document.getElementById("er_status").value;
+  const vuln = document.getElementById("er_vulnerability").value;
+  if (name) b.name = name;
+  if (status) b.status = status;
+  if (vuln) b.vulnerability = vuln;
+
+  apiFetch(`${API}/api/refugees/${id}`, { method: "PUT", body: JSON.stringify(b) })
+  .then(d => { alert(d.message || d.error); hideCrud(); loadAllRefugees(); });
+}
+
+function deleteRefugee(id) {
+  if (!confirm(`Delete refugee ${id}?`)) return;
+  apiFetch(`${API}/api/refugees/${id}`, { method: "DELETE" })
+  .then(d => { alert(d.message || d.error); loadAllRefugees(); });
+}
+
+function showAssignShelter() {
+  showCrud("Assign Refugee to Shelter", `
+    <input id="as_refugee" placeholder="Refugee ID" type="number">
+    <input id="as_shelter" placeholder="Shelter ID" type="number">
+    <button class="btn btn-primary" onclick="submitAssignShelter()">Assign</button>
+    <button class="btn btn-soft" onclick="hideCrud()">Cancel</button>
+  `);
+}
+
+function submitAssignShelter() {
+  const rid = document.getElementById("as_refugee").value;
+  const sid = document.getElementById("as_shelter").value;
+  if (!rid || !sid) return alert("Both IDs required");
+
+  apiFetch(`${API}/api/refugees/${rid}`, {
+    method: "PUT", body: JSON.stringify({ shelter_id: Number(sid) })
+  }).then(d => { alert(d.message || d.error); hideCrud(); loadAllRefugees(); });
+}
+
+// ══════════════════════════════════════════════════════════
+// ██ DOCTORS
+// ══════════════════════════════════════════════════════════
+async function loadDoctors() {
+  currentSection = "doctors";
+  setNav("doctors");
+  document.getElementById("pageTitle").innerText = "Doctors";
+  hideCrud(); hideSearch(); resetCards();
+
+  showActions(`
+    <button class="btn btn-primary" onclick="showAddDoctor()"><i class="fa fa-plus"></i> Add Doctor</button>
+  `);
+
+  const data = await apiFetch(`${API}/api/doctors`);
+  setHeaders(["ID","Name","Specialization","Email","Contact","Hours/Week","Shelter","Actions"]);
+  const body = document.getElementById("tableBody");
+  setCount(Array.isArray(data) ? data.length : 0);
+  if (!Array.isArray(data) || !data.length) {
+    body.innerHTML = `<tr><td colspan="8" class="empty-row">No doctors found</td></tr>`;
+    return;
+  }
+  body.innerHTML = data.map(d => `<tr>
+    <td>${d.DOCTOR_ID}</td><td>${d.NAME??'-'}</td><td>${d.SPECIALIZATION??'-'}</td>
+    <td>${d.EMAIL??'-'}</td><td>${d.CONTACT_NO??'-'}</td><td>${d.HOURSPERWEEK??'-'}</td>
+    <td>${d.SHELTER_ID??'-'}</td>
+    <td>
+      <button class="btn btn-primary" onclick="showEditDoctor(${d.DOCTOR_ID})">Edit</button>
+      <button class="btn btn-danger" onclick="deleteDoctor(${d.DOCTOR_ID})">Delete</button>
+    </td>
+  </tr>`).join('');
+}
+
+function showAddDoctor() {
+  showCrud("Add New Doctor", `
+    <input id="cd_name" placeholder="Name" required>
+    <input id="cd_spec" placeholder="Specialization">
+    <input id="cd_email" placeholder="Email">
+    <input id="cd_contact" placeholder="Contact No">
+    <input id="cd_hours" placeholder="Hours/Week" type="number">
+    <input id="cd_shelter" placeholder="Shelter ID" type="number">
+    <button class="btn btn-primary" onclick="submitAddDoctor()">Save</button>
+    <button class="btn btn-soft" onclick="hideCrud()">Cancel</button>
+  `);
+}
+
+function submitAddDoctor() {
+  const name = document.getElementById("cd_name").value;
+  if (!name) return alert("Name required");
+  apiFetch(`${API}/api/doctors`, {
+    method: "POST",
+    body: JSON.stringify({
+      name,
+      specialization: document.getElementById("cd_spec").value || null,
+      email: document.getElementById("cd_email").value || null,
+      contact_no: document.getElementById("cd_contact").value || null,
+      hoursperweek: document.getElementById("cd_hours").value || null,
+      shelter_id: document.getElementById("cd_shelter").value || null
+    })
+  }).then(d => { alert(d.message || d.error); hideCrud(); loadDoctors(); });
+}
+
+function showEditDoctor(id) {
+  showCrud("Edit Doctor #" + id, `
+    <input id="ed_name" placeholder="Name (blank=skip)">
+    <input id="ed_spec" placeholder="Specialization (blank=skip)">
+    <input id="ed_email" placeholder="Email (blank=skip)">
+    <input id="ed_contact" placeholder="Contact (blank=skip)">
+    <button class="btn btn-primary" onclick="submitEditDoctor(${id})">Update</button>
+    <button class="btn btn-soft" onclick="hideCrud()">Cancel</button>
+  `);
+}
+
+function submitEditDoctor(id) {
+  const b = {};
+  const n = document.getElementById("ed_name").value;
+  const s = document.getElementById("ed_spec").value;
+  const e = document.getElementById("ed_email").value;
+  const c = document.getElementById("ed_contact").value;
+  if (n) b.name = n; if (s) b.specialization = s; if (e) b.email = e; if (c) b.contact_no = c;
+  apiFetch(`${API}/api/doctors/${id}`, { method: "PUT", body: JSON.stringify(b) })
+  .then(d => { alert(d.message || d.error); hideCrud(); loadDoctors(); });
+}
+
+function deleteDoctor(id) {
+  if (!confirm(`Delete doctor ${id}?`)) return;
+  apiFetch(`${API}/api/doctors/${id}`, { method: "DELETE" })
+  .then(d => { alert(d.message || d.error); loadDoctors(); });
+}
+
+// ══════════════════════════════════════════════════════════
+// ██ VOLUNTEERS
+// ══════════════════════════════════════════════════════════
+async function loadVolunteers() {
+  currentSection = "volunteers";
+  setNav("volunteers");
+  document.getElementById("pageTitle").innerText = "Volunteers";
+  hideCrud(); hideSearch(); resetCards();
+
+  showActions(`
+    <button class="btn btn-primary" onclick="showAddVolunteer()"><i class="fa fa-plus"></i> Add Volunteer</button>
+    <button class="btn btn-soft" onclick="showReassignVolunteer()"><i class="fa fa-arrows-rotate"></i> Reassign</button>
+  `);
+
+  const data = await apiFetch(`${API}/api/volunteers`);
+  setHeaders(["ID","Name","Phone","Email","Emergency","Hours","Status","Shelter","Actions"]);
+  const body = document.getElementById("tableBody");
+  setCount(Array.isArray(data) ? data.length : 0);
+  if (!Array.isArray(data) || !data.length) {
+    body.innerHTML = `<tr><td colspan="9" class="empty-row">No volunteers found</td></tr>`;
+    return;
+  }
+  body.innerHTML = data.map(v => `<tr>
+    <td>${v.VOLUNTEER_ID}</td><td>${v.NAME??'-'}</td><td>${v.PHONE??'-'}</td>
+    <td>${v.EMAIL??'-'}</td><td>${v.EMERGENCY_CONTACT??'-'}</td><td>${v.HOURS??'-'}</td>
+    <td><span class="status ok">${v.STATUS??'-'}</span></td><td>${v.SHELTER_ID??'None'}</td>
+    <td>
+      <button class="btn btn-primary" onclick="showReassignVolunteerById(${v.VOLUNTEER_ID}, ${v.SHELTER_ID??'null'})">Reassign</button>
+      <button class="btn btn-danger" onclick="deleteVolunteer(${v.VOLUNTEER_ID})">Delete</button>
+    </td>
+  </tr>`).join('');
+}
+
+function showAddVolunteer() {
+  showCrud("Add Volunteer", `
+    <input id="cv_name" placeholder="Name" required>
+    <input id="cv_phone" placeholder="Phone">
+    <input id="cv_email" placeholder="Email">
+    <input id="cv_emergency" placeholder="Emergency Contact">
+    <input id="cv_shelter" placeholder="Shelter ID" type="number">
+    <button class="btn btn-primary" onclick="submitAddVolunteer()">Save</button>
+    <button class="btn btn-soft" onclick="hideCrud()">Cancel</button>
+  `);
+}
+
+function submitAddVolunteer() {
+  const name = document.getElementById("cv_name").value;
+  if (!name) return alert("Name required");
+  apiFetch(`${API}/api/volunteers`, {
+    method: "POST",
+    body: JSON.stringify({
+      name,
+      phone: document.getElementById("cv_phone").value || null,
+      email: document.getElementById("cv_email").value || null,
+      emergency_contact: document.getElementById("cv_emergency").value || null,
+      shelter_id: document.getElementById("cv_shelter").value || null
+    })
+  }).then(d => { alert(d.message || d.error); hideCrud(); loadVolunteers(); });
+}
+
+function showReassignVolunteer() {
+  showCrud("Reassign Volunteer", `
+    <input id="rv_id" placeholder="Volunteer ID" type="number">
+    <input id="rv_shelter" placeholder="New Shelter ID" type="number">
+    <button class="btn btn-primary" onclick="submitReassignVolunteer()">Reassign</button>
+    <button class="btn btn-soft" onclick="hideCrud()">Cancel</button>
+  `);
+}
+
+function showReassignVolunteerById(vid, cur) {
+  showCrud("Reassign Volunteer #" + vid, `
+    <p style="color:#64748b;font-size:0.85rem;">Current Shelter: ${cur ?? 'None'}</p>
+    <input id="rv_shelter" placeholder="New Shelter ID" type="number">
+    <button class="btn btn-primary" onclick="submitReassignById(${vid})">Reassign</button>
+    <button class="btn btn-soft" onclick="hideCrud()">Cancel</button>
+  `);
+}
+
+function submitReassignVolunteer() {
+  const vid = document.getElementById("rv_id").value;
+  const sid = document.getElementById("rv_shelter").value;
+  if (!vid || !sid) return alert("Both IDs required");
+  apiFetch(`${API}/api/volunteers/${vid}`, {
+    method: "PUT", body: JSON.stringify({ shelter_id: Number(sid) })
+  }).then(d => { alert(d.message || d.error); hideCrud(); loadVolunteers(); });
+}
+
+function submitReassignById(vid) {
+  const sid = document.getElementById("rv_shelter").value;
+  if (!sid) return alert("Shelter ID required");
+  apiFetch(`${API}/api/volunteers/${vid}`, {
+    method: "PUT", body: JSON.stringify({ shelter_id: Number(sid) })
+  }).then(d => { alert(d.message || d.error); hideCrud(); loadVolunteers(); });
+}
+
+function deleteVolunteer(id) {
+  if (!confirm(`Delete volunteer ${id}?`)) return;
+  apiFetch(`${API}/api/volunteers/${id}`, { method: "DELETE" })
+  .then(d => { alert(d.message || d.error); loadVolunteers(); });
+}
+
+// ══════════════════════════════════════════════════════════
+// ██ COORDINATORS
+// ══════════════════════════════════════════════════════════
+async function loadCoordinators() {
+  currentSection = "coordinators";
+  setNav("coordinators");
+  document.getElementById("pageTitle").innerText = "Coordinators";
+  hideCrud(); hideSearch(); resetCards();
+
+  showActions(`
+    <button class="btn btn-primary" onclick="showAddCoordinator()"><i class="fa fa-plus"></i> Add Coordinator</button>
+  `);
+
+  const data = await apiFetch(`${API}/api/coordinators`);
+  setHeaders(["ID","Name","Phone","Email","Actions"]);
+  const body = document.getElementById("tableBody");
+  setCount(Array.isArray(data) ? data.length : 0);
+  if (!Array.isArray(data) || !data.length) {
+    body.innerHTML = `<tr><td colspan="5" class="empty-row">No coordinators found</td></tr>`;
+    return;
+  }
+  body.innerHTML = data.map(c => `<tr>
+    <td>${c.COORDINATOR_ID}</td><td>${c.COORDINATOR_NAME??'-'}</td>
+    <td>${c.PHONE??'-'}</td><td>${c.EMAIL??'-'}</td>
+    <td>
+      <button class="btn btn-primary" onclick="showEditCoordinator(${c.COORDINATOR_ID})">Edit</button>
+      <button class="btn btn-danger" onclick="deleteCoordinator(${c.COORDINATOR_ID})">Delete</button>
+    </td>
+  </tr>`).join('');
+}
+
+function showAddCoordinator() {
+  showCrud("Add Coordinator", `
+    <input id="cc_name" placeholder="Name" required>
+    <input id="cc_phone" placeholder="Phone">
+    <input id="cc_email" placeholder="Email">
+    <button class="btn btn-primary" onclick="submitAddCoordinator()">Save</button>
+    <button class="btn btn-soft" onclick="hideCrud()">Cancel</button>
+  `);
+}
+
+function submitAddCoordinator() {
+  const name = document.getElementById("cc_name").value;
+  const phone = document.getElementById("cc_phone").value;
+  const email = document.getElementById("cc_email").value;
+  if (!name || !phone || !email) return alert("All fields required");
+  apiFetch(`${API}/api/coordinators`, {
+    method: "POST",
+    body: JSON.stringify({ Coordinator_Name: name, Phone: phone, email })
+  }).then(d => { alert(d.message || d.error); hideCrud(); loadCoordinators(); });
+}
+
+function showEditCoordinator(id) {
+  showCrud("Edit Coordinator #" + id, `
+    <input id="ec_name" placeholder="Name">
+    <input id="ec_phone" placeholder="Phone">
+    <input id="ec_email" placeholder="Email">
+    <button class="btn btn-primary" onclick="submitEditCoordinator(${id})">Update</button>
+    <button class="btn btn-soft" onclick="hideCrud()">Cancel</button>
+  `);
+}
+
+function submitEditCoordinator(id) {
+  const name = document.getElementById("ec_name").value;
+  const phone = document.getElementById("ec_phone").value;
+  const email = document.getElementById("ec_email").value;
+  if (!name || !phone || !email) return alert("All fields required");
+  apiFetch(`${API}/api/coordinators/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ Coordinator_Name: name, Phone: phone, Email: email })
+  }).then(d => { alert(d.message || d.error); hideCrud(); loadCoordinators(); });
+}
+
+function deleteCoordinator(id) {
+  if (!confirm(`Delete coordinator ${id}?`)) return;
+  apiFetch(`${API}/api/coordinators/${id}`, { method: "DELETE" })
+  .then(d => { alert(d.message || d.error); loadCoordinators(); });
+}
+
+// ══════════════════════════════════════════════════════════
+// ██ SHELTERS (view only)
+// ══════════════════════════════════════════════════════════
+async function loadShelters() {
+  currentSection = "shelters";
+  setNav("shelters");
+  document.getElementById("pageTitle").innerText = "Shelters";
+  hideCrud(); hideActions(); hideSearch(); resetCards();
+
+  const data = await apiFetch(`${API}/api/shelters`);
+  setHeaders(["ID","Name","Capacity","Current","Critical","Location"]);
+  const body = document.getElementById("tableBody");
+  setCount(Array.isArray(data) ? data.length : 0);
+  if (!Array.isArray(data) || !data.length) {
+    body.innerHTML = `<tr><td colspan="6" class="empty-row">No shelters found</td></tr>`;
+    return;
+  }
+  body.innerHTML = data.map(s => `<tr>
+    <td>${s.SHELTER_ID}</td><td>${s.SHELTER_NAME??'-'}</td><td>${s.TOTAL_CAPACITY??'-'}</td>
+    <td>${s.CURR_CAPACITY??0}</td><td>${s.CRITICAL_PATIENTS??0}</td>
+    <td>${s.CITY??'-'}, ${s.COUNTRY??'-'}</td>
+  </tr>`).join('');
+}
+
+// ══════════════════════════════════════════════════════════
+// ██ CAMPS
+// ══════════════════════════════════════════════════════════
+async function loadCamps() {
+  currentSection = "camps";
+  setNav("camps");
+  document.getElementById("pageTitle").innerText = "Camps";
+  hideCrud(); hideSearch(); resetCards();
+
+  showActions(`
+    <button class="btn btn-primary" onclick="showAddCamp()"><i class="fa fa-plus"></i> Add Camp</button>
+  `);
+
+  const data = await apiFetch(`${API}/api/camps`);
+  setHeaders(["ID","Name","Block","Current","Total","Shelter","Actions"]);
+  const body = document.getElementById("tableBody");
+  setCount(Array.isArray(data) ? data.length : 0);
+  if (!Array.isArray(data) || !data.length) {
+    body.innerHTML = `<tr><td colspan="7" class="empty-row">No camps found</td></tr>`;
+    return;
+  }
+  body.innerHTML = data.map(c => `<tr>
+    <td>${c.CAMP_ID}</td><td>${c.CAMP_NAME??'-'}</td><td>${c.BLOCK??'-'}</td>
+    <td>${c.CURR_CAPACITY??0}</td><td>${c.TOTAL_CAPACITY??'-'}</td><td>${c.SHELTER_ID??'-'}</td>
+    <td>
+      <button class="btn btn-primary" onclick="showEditCamp(${c.CAMP_ID})">Edit</button>
+      <button class="btn btn-danger" onclick="deleteCamp(${c.CAMP_ID})">Delete</button>
+    </td>
+  </tr>`).join('');
+}
+
+function showAddCamp() {
+  showCrud("Add Camp", `
+    <input id="ccamp_name" placeholder="Camp Name" required>
+    <input id="ccamp_block" placeholder="Block">
+    <input id="ccamp_cap" placeholder="Total Capacity" type="number">
+    <input id="ccamp_shelter" placeholder="Shelter ID" type="number">
+    <button class="btn btn-primary" onclick="submitAddCamp()">Save</button>
+    <button class="btn btn-soft" onclick="hideCrud()">Cancel</button>
+  `);
+}
+
+function submitAddCamp() {
+  const name = document.getElementById("ccamp_name").value;
+  const cap = document.getElementById("ccamp_cap").value;
+  const sid = document.getElementById("ccamp_shelter").value;
+  if (!name || !cap || !sid) return alert("Name, Capacity and Shelter required");
+  apiFetch(`${API}/api/camps`, {
+    method: "POST",
+    body: JSON.stringify({
+      camp_name: name,
+      block: document.getElementById("ccamp_block").value || null,
+      total_capacity: Number(cap),
+      shelter_id: Number(sid)
+    })
+  }).then(d => { alert(d.message || d.error); hideCrud(); loadCamps(); });
+}
+
+function showEditCamp(id) {
+  showCrud("Edit Camp #" + id, `
+    <input id="ecamp_name" placeholder="Camp Name (blank=skip)">
+    <input id="ecamp_block" placeholder="Block (blank=skip)">
+    <input id="ecamp_cap" placeholder="Total Capacity (blank=skip)" type="number">
+    <button class="btn btn-primary" onclick="submitEditCamp(${id})">Update</button>
+    <button class="btn btn-soft" onclick="hideCrud()">Cancel</button>
+  `);
+}
+
+function submitEditCamp(id) {
+  const b = {};
+  const n = document.getElementById("ecamp_name").value;
+  const bl = document.getElementById("ecamp_block").value;
+  const c = document.getElementById("ecamp_cap").value;
+  if (n) b.camp_name = n; if (bl) b.block = bl; if (c) b.total_capacity = Number(c);
+  apiFetch(`${API}/api/camps/${id}`, { method: "PUT", body: JSON.stringify(b) })
+  .then(d => { alert(d.message || d.error); hideCrud(); loadCamps(); });
+}
+
+function deleteCamp(id) {
+  if (!confirm(`Delete camp ${id}?`)) return;
+  apiFetch(`${API}/api/camps/${id}`, { method: "DELETE" })
+  .then(d => { alert(d.message || d.error); loadCamps(); });
+}
+
+// ══════════════════════════════════════════════════════════
+// ██ ORGANIZATIONS
+// ══════════════════════════════════════════════════════════
+async function loadOrganizations() {
+  currentSection = "organizations";
+  setNav("orgs");
+  document.getElementById("pageTitle").innerText = "Organizations";
+  hideCrud(); hideSearch(); resetCards();
+
+  showActions(`
+    <button class="btn btn-primary" onclick="showAddOrg()"><i class="fa fa-plus"></i> Add Organization</button>
+  `);
+
+  const data = await apiFetch(`${API}/api/orgs`);
+  setHeaders(["ID","Name","Type","Phone","Email","Actions"]);
+  const body = document.getElementById("tableBody");
+  setCount(Array.isArray(data) ? data.length : 0);
+  if (!Array.isArray(data) || !data.length) {
+    body.innerHTML = `<tr><td colspan="6" class="empty-row">No organizations found</td></tr>`;
+    return;
+  }
+  body.innerHTML = data.map(o => `<tr>
+    <td>${o.ORG_ID}</td><td>${o.ORG_NAME??'-'}</td><td>${o.ORG_TYPE??'-'}</td>
+    <td>${o.PHONE??'-'}</td><td>${o.EMAIL??'-'}</td>
+    <td>
+      <button class="btn btn-primary" onclick="showEditOrg(${o.ORG_ID})">Edit</button>
+      <button class="btn btn-danger" onclick="deleteOrg(${o.ORG_ID})">Delete</button>
+    </td>
+  </tr>`).join('');
+}
+
+function showAddOrg() {
+  showCrud("Add Organization", `
+    <input id="co_name" placeholder="Name" required>
+    <input id="co_type" placeholder="Type">
+    <input id="co_phone" placeholder="Phone">
+    <input id="co_email" placeholder="Email">
+    <button class="btn btn-primary" onclick="submitAddOrg()">Save</button>
+    <button class="btn btn-soft" onclick="hideCrud()">Cancel</button>
+  `);
+}
+
+function submitAddOrg() {
+  const name = document.getElementById("co_name").value;
+  if (!name) return alert("Name required");
+  apiFetch(`${API}/api/orgs`, {
+    method: "POST",
+    body: JSON.stringify({
+      org_name: name,
+      org_type: document.getElementById("co_type").value || null,
+      phone: document.getElementById("co_phone").value || null,
+      email: document.getElementById("co_email").value || null
+    })
+  }).then(d => { alert(d.message || d.error); hideCrud(); loadOrganizations(); });
+}
+
+function showEditOrg(id) {
+  showCrud("Edit Organization #" + id, `
+    <input id="eo_name" placeholder="Name (blank=skip)">
+    <input id="eo_type" placeholder="Type (blank=skip)">
+    <input id="eo_phone" placeholder="Phone (blank=skip)">
+    <input id="eo_email" placeholder="Email (blank=skip)">
+    <button class="btn btn-primary" onclick="submitEditOrg(${id})">Update</button>
+    <button class="btn btn-soft" onclick="hideCrud()">Cancel</button>
+  `);
+}
+
+function submitEditOrg(id) {
+  const b = {};
+  const n = document.getElementById("eo_name").value;
+  const t = document.getElementById("eo_type").value;
+  const p = document.getElementById("eo_phone").value;
+  const e = document.getElementById("eo_email").value;
+  if (n) b.org_name = n; if (t) b.org_type = t; if (p) b.phone = p; if (e) b.email = e;
+  apiFetch(`${API}/api/orgs/${id}`, { method: "PUT", body: JSON.stringify(b) })
+  .then(d => { alert(d.message || d.error); hideCrud(); loadOrganizations(); });
+}
+
+function deleteOrg(id) {
+  if (!confirm(`Delete organization ${id}?`)) return;
+  apiFetch(`${API}/api/orgs/${id}`, { method: "DELETE" })
+  .then(d => { alert(d.message || d.error); loadOrganizations(); });
+}
+
+// ══════════════════════════════════════════════════════════
+// ██ INVENTORY
+// ══════════════════════════════════════════════════════════
+async function loadInventory() {
+  currentSection = "inventory";
+  setNav("inventory");
+  document.getElementById("pageTitle").innerText = "Inventory";
+  hideCrud(); hideSearch(); resetCards();
+
+  showActions(`
+    <button class="btn btn-primary" onclick="showAddInventory()"><i class="fa fa-plus"></i> Add Item</button>
+  `);
+
+  const data = await apiFetch(`${API}/api/admin/inventory`);
+  setHeaders(["ID","Product","Category","Qty","In Date","Exp Date","Low Alert","Shelter","Actions"]);
+  const body = document.getElementById("tableBody");
+  setCount(Array.isArray(data) ? data.length : 0);
+  if (!Array.isArray(data) || !data.length) {
+    body.innerHTML = `<tr><td colspan="9" class="empty-row">No inventory found</td></tr>`;
+    return;
+  }
+  body.innerHTML = data.map(i => `<tr>
+    <td>${i.PRODUCT_ID}</td><td>${i.PRODUCT_NAME??'-'}</td><td>${i.CATEGORY??'-'}</td>
+    <td class="${i.QUANTITY<=i.LOW_ALERT?'low-stock':''}">
+      ${i.QUANTITY??0} ${i.QUANTITY<=i.LOW_ALERT?'<span class="status critical">Low</span>':''}
+    </td>
+    <td>${i.IN_DATE?new Date(i.IN_DATE).toLocaleDateString():'-'}</td>
+    <td>${i.EXP_DATE?new Date(i.EXP_DATE).toLocaleDateString():'-'}</td>
+    <td>${i.LOW_ALERT??'-'}</td>
+    <td>${i.SHELTER_NAME??i.SHELTER_ID??'-'}</td>
+    <td>
+      <button class="btn btn-primary" onclick="showEditInventory(${i.PRODUCT_ID}, ${i.QUANTITY})">Edit</button>
+      <button class="btn btn-danger" onclick="deleteInventory(${i.PRODUCT_ID})">Delete</button>
+    </td>
+  </tr>`).join('');
+}
+
+function showAddInventory() {
+  showCrud("Add Inventory Item", `
+    <input id="ci_shelter" placeholder="Shelter ID" type="number" required>
+    <input id="ci_name" placeholder="Product Name" required>
+    <select id="ci_cat"><option value="">Category</option><option value="Food">Food</option><option value="Medicine">Medicine</option><option value="Shelter">Shelter</option><option value="General">General</option></select>
+    <input id="ci_qty" placeholder="Quantity" type="number" required>
+    <input id="ci_low" placeholder="Low Alert Threshold" type="number">
+    <button class="btn btn-primary" onclick="submitAddInventory()">Save</button>
+    <button class="btn btn-soft" onclick="hideCrud()">Cancel</button>
+  `);
+}
+
+function submitAddInventory() {
+  const sid = document.getElementById("ci_shelter").value;
+  const name = document.getElementById("ci_name").value;
+  const qty = document.getElementById("ci_qty").value;
+  if (!sid || !name || !qty) return alert("Shelter ID, Name and Qty required");
+  apiFetch(`${API}/api/admin/inventory`, {
+    method: "POST",
+    body: JSON.stringify({
+      shelter_id: Number(sid),
+      product_name: name,
+      category: document.getElementById("ci_cat").value || null,
+      quantity: Number(qty),
+      low_alert: Number(document.getElementById("ci_low").value || 0)
+    })
+  }).then(d => { alert(d.message || d.error); hideCrud(); loadInventory(); });
+}
+
+function showEditInventory(pid, cur) {
+  showCrud("Edit Inventory #" + pid, `
+    <p style="color:#64748b;font-size:0.85rem;">Current Qty: ${cur}</p>
+    <input id="ei_name" placeholder="Product Name (blank=skip)">
+    <select id="ei_cat"><option value="">Category (skip)</option><option value="Food">Food</option><option value="Medicine">Medicine</option><option value="Shelter">Shelter</option><option value="General">General</option></select>
+    <input id="ei_qty" placeholder="New Quantity" type="number">
+    <input id="ei_low" placeholder="Low Alert (blank=skip)" type="number">
+    <button class="btn btn-primary" onclick="submitEditInventory(${pid})">Update</button>
+    <button class="btn btn-soft" onclick="hideCrud()">Cancel</button>
+  `);
+}
+
+function submitEditInventory(pid) {
+  const b = {};
+  const n = document.getElementById("ei_name").value;
+  const c = document.getElementById("ei_cat").value;
+  const q = document.getElementById("ei_qty").value;
+  const l = document.getElementById("ei_low").value;
+  if (n) b.product_name = n; if (c) b.category = c; if (q) b.quantity = Number(q); if (l) b.low_alert = Number(l);
+  apiFetch(`${API}/api/admin/inventory/${pid}`, { method: "PUT", body: JSON.stringify(b) })
+  .then(d => { alert(d.message || d.error); hideCrud(); loadInventory(); });
+}
+
+function deleteInventory(pid) {
+  if (!confirm(`Delete product ${pid}?`)) return;
+  apiFetch(`${API}/api/admin/inventory/${pid}`, { method: "DELETE" })
+  .then(d => { alert(d.message || d.error); loadInventory(); });
+}
+
+// ══════════════════════════════════════════════════════════
+// ██ AID DISTRIBUTION (view + delete)
+// ══════════════════════════════════════════════════════════
+async function loadAidDistributions() {
+  currentSection = "aid";
+  setNav("aid");
+  document.getElementById("pageTitle").innerText = "Aid Distribution";
+  hideCrud(); hideSearch(); resetCards(); hideActions();
+
+  const data = await apiFetch(`${API}/api/admin/aid`);
+  setHeaders(["ID","Refugee","Volunteer","Item","Qty","Date","Status","Shelter","Actions"]);
+  const body = document.getElementById("tableBody");
+  setCount(Array.isArray(data) ? data.length : 0);
+  if (!Array.isArray(data) || !data.length) {
+    body.innerHTML = `<tr><td colspan="9" class="empty-row">No aid distributions found</td></tr>`;
+    return;
+  }
+  body.innerHTML = data.map(a => `<tr>
+    <td>${a.DISTRIBUTION_ID??'-'}</td><td>${a.REFUGEE_NAME??'-'}</td>
+    <td>${a.VOLUNTEER_NAME??'Unassigned'}</td><td>${a.ITEM_NAME??'-'}</td>
+    <td>${a.QUANTITY??'-'}</td>
+    <td>${a.DISTRIBUTION_DATE?new Date(a.DISTRIBUTION_DATE).toLocaleDateString():'-'}</td>
+    <td><span class="status ${a.STATUS==='Pending'?'pending':'ok'}">${a.STATUS??'-'}</span></td>
+    <td>${a.SHELTER_NAME??'-'}</td>
+    <td><button class="btn btn-danger" onclick="deleteAid(${a.DISTRIBUTION_ID})">Delete</button></td>
+  </tr>`).join('');
+}
+
+function deleteAid(id) {
+  if (!confirm(`Delete distribution ${id}?`)) return;
+  apiFetch(`${API}/api/admin/aid/${id}`, { method: "DELETE" })
+  .then(d => { alert(d.message || d.error); loadAidDistributions(); });
+}
+
+// ══════════════════════════════════════════════════════════
+// ██ DONATIONS (view only)
+// ══════════════════════════════════════════════════════════
+async function loadDonations() {
+  currentSection = "donations";
+  setNav("donations");
+  document.getElementById("pageTitle").innerText = "Donations";
+  hideCrud(); hideSearch(); resetCards(); hideActions();
+
+  const data = await apiFetch(`${API}/api/donations`);
+  setHeaders(["ID","Donor","Amount","Purpose","Date","Organization"]);
+  const body = document.getElementById("tableBody");
+  setCount(Array.isArray(data) ? data.length : 0);
+  if (!Array.isArray(data) || !data.length) {
+    body.innerHTML = `<tr><td colspan="6" class="empty-row">No donations found</td></tr>`;
+    return;
+  }
+  body.innerHTML = data.map(d => `<tr>
+    <td>${d.DONATION_ID??'-'}</td><td>${d.DONOR_NAME??'-'}</td>
+    <td>$${d.AMOUNT??0}</td><td>${d.PURPOSE??'-'}</td>
+    <td>${d.DONATED_DATE?new Date(d.DONATED_DATE).toLocaleDateString():'-'}</td>
+    <td>${d.ORG_NAME??d.ORG_ID??'-'}</td>
+  </tr>`).join('');
+}
+
+// ══════════════════════════════════════════════════════════
+// ██ MEDICAL RECORDS (view only, all shelters)
+// ══════════════════════════════════════════════════════════
+async function loadMedicalRecords() {
+  currentSection = "medical";
+  setNav("medical");
+  document.getElementById("pageTitle").innerText = "Medical Records";
+  hideCrud(); hideSearch(); resetCards(); hideActions();
+
+  const shelters = await apiFetch(`${API}/api/shelters`);
+  let all = [];
+  if (Array.isArray(shelters)) {
+    const results = await Promise.all(
+      shelters.map(s => apiFetch(`${API}/api/coordinators/${s.SHELTER_ID}/medical-records`))
+    );
+    results.forEach(items => { if (Array.isArray(items)) all = all.concat(items); });
+  }
+
+  setHeaders(["ID","Refugee","Doctor","Date","Diagnosis","Treatment","Critical"]);
+  const body = document.getElementById("tableBody");
+  setCount(all.length);
+  if (!all.length) {
+    body.innerHTML = `<tr><td colspan="7" class="empty-row">No medical records found</td></tr>`;
+    return;
+  }
+  body.innerHTML = all.map(m => `<tr>
+    <td>${m.RECORD_ID??'-'}</td><td>${m.REFUGEE_NAME??'-'}</td><td>${m.DOCTOR_NAME??'-'}</td>
+    <td>${m.RECORD_DATE?new Date(m.RECORD_DATE).toLocaleDateString():'-'}</td>
+    <td class="wrap">${m.DIAGNOSIS??'-'}</td><td class="wrap">${m.TREATMENT??'-'}</td>
+    <td><span class="status ${m.IS_CRITICAL==='Y'?'critical':'ok'}">${m.IS_CRITICAL==='Y'?'Yes':'No'}</span></td>
+  </tr>`).join('');
+}
+
+// ══════════════════════════════════════════════════════════
+// ██ INCIDENTS (view only, all shelters)
+// ══════════════════════════════════════════════════════════
+async function loadIncidents() {
+  currentSection = "incidents";
+  setNav("incidents");
+  document.getElementById("pageTitle").innerText = "Incidents";
+  hideCrud(); hideSearch(); resetCards(); hideActions();
+
+  const shelters = await apiFetch(`${API}/api/shelters`);
+  let all = [];
+  if (Array.isArray(shelters)) {
+    const results = await Promise.all(
+      shelters.map(s => apiFetch(`${API}/api/coordinators/${s.SHELTER_ID}/incidents`))
+    );
+    results.forEach(items => { if (Array.isArray(items)) all = all.concat(items); });
+  }
+
+  setHeaders(["ID","Date","Refugee","Volunteer","Severity","Description"]);
+  const body = document.getElementById("tableBody");
+  setCount(all.length);
+  if (!all.length) {
+    body.innerHTML = `<tr><td colspan="6" class="empty-row">No incidents found</td></tr>`;
+    return;
+  }
+  body.innerHTML = all.map(i => `<tr>
+    <td>${i.INCIDENT_ID??'-'}</td>
+    <td>${i.DATE_REPORTED?new Date(i.DATE_REPORTED).toLocaleDateString():'-'}</td>
+    <td>${i.REFUGEE_NAME??'-'}</td><td>${i.VOLUNTEER_NAME??'-'}</td>
+    <td><span class="status ${i.SEVERITY==='HIGH'?'critical':'ok'}">${i.SEVERITY??'-'}</span></td>
+    <td class="wrap">${i.DESCRIPTION??'-'}</td>
+  </tr>`).join('');
+}
+
+// ══════════════════════════════════════════════════════════
+// ██ CRITICAL PATIENTS (view only, all shelters)
+// ══════════════════════════════════════════════════════════
+async function loadCriticalPatients() {
+  currentSection = "critical";
+  setNav("critical");
+  document.getElementById("pageTitle").innerText = "Critical Patients";
+  hideCrud(); hideSearch(); resetCards(); hideActions();
+
+  const shelters = await apiFetch(`${API}/api/shelters`);
+  let all = [];
+  if (Array.isArray(shelters)) {
+    const results = await Promise.all(
+      shelters.map(s => apiFetch(`${API}/api/coordinators/${s.SHELTER_ID}/refugees/critical`))
+    );
+    results.forEach(items => { if (Array.isArray(items)) all = all.concat(items); });
+  }
+
+  setHeaders(["ID","Name","Nationality","Diagnosis","Treatment","Doctor","Camp"]);
+  const body = document.getElementById("tableBody");
+  setCount(all.length);
+  if (!all.length) {
+    body.innerHTML = `<tr><td colspan="7" class="empty-row">No critical patients found</td></tr>`;
+    return;
+  }
+  body.innerHTML = all.map(p => `<tr>
+    <td>${p.REFUGEE_ID??'-'}</td><td>${p.NAME??'-'}</td><td>${p.NATIONALITY??'-'}</td>
+    <td class="wrap">${p.DIAGNOSIS??'-'}</td><td class="wrap">${p.TREATMENT??'-'}</td>
+    <td>${p.DOCTOR_NAME??'-'}</td><td>${p.CAMP_NAME??'-'}</td>
+  </tr>`).join('');
+}
+
+// ══════════════════════════════════════════════════════════
+// ██ SEARCH
+// ══════════════════════════════════════════════════════════
+function handleSearch() {
+  const term = document.getElementById("searchInput").value.trim();
+  if (!term) return alert("Enter a search term");
+
+  if (currentSection === "refugees") {
+    if (/^\d+$/.test(term)) {
+      apiFetch(`${API}/api/refugees/${term}`).then(d => {
+        if (d.error) return alert(d.error);
+        renderRefugees([d]);
+      });
+    } else {
+      apiFetch(`${API}/api/refugees`).then(data => {
+        const filtered = Array.isArray(data)
+          ? data.filter(r => r.NAME?.toLowerCase().includes(term.toLowerCase()) ||
+                            r.NATIONALITY?.toLowerCase().includes(term.toLowerCase()))
+          : [];
+        renderRefugees(filtered);
+      });
+    }
+  }
+}
+
+function clearSearch() {
+  document.getElementById("searchInput").value = "";
+  if (currentSection === "refugees") loadAllRefugees();
+}
+
+// ── LOGOUT ─────────────────────────────────────────────────
+function logout() {
+  localStorage.clear();
+  window.location.href = "login.html";
+}
+
+// ── INIT ───────────────────────────────────────────────────
+loadDashboard();
+</script>
+</body>
+</html>

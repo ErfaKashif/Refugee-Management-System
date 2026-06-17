@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Refugees – Admin</title>
+<link rel="stylesheet" href="donation.css">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+<style>
+  .crud-section { display:none; background:#fff; border:1px solid #dbe3ef; border-radius:14px; padding:1.2rem; margin-bottom:1rem; }
+  .crud-section.show { display:block; }
+  .crud-section h3 { margin:0 0 0.8rem; color:#1e3a8a; border-bottom:2px solid #60a5fa; padding-bottom:0.4rem; }
+  .crud-form { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:0.6rem; }
+  .action-bar { display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem; padding:0.8rem; background:#fff; border:1px solid #dbe3ef; border-radius:14px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+
+<aside class="sidebar">
+  <div class="brand"><i class="fa-solid fa-shield-halved"></i><h1>Admin</h1></div>
+  <div class="menu">
+    <a href="adminView.html"><i class="fa fa-chart-line"></i> Dashboard</a>
+    <a class="active"><i class="fa fa-users"></i> Refugees</a>
+    <a href="doctor.html"><i class="fa fa-user-doctor"></i> Doctors</a>
+    <a href="volunteer.html"><i class="fa fa-hands-helping"></i> Volunteers</a>
+    <a href="coordinator.html"><i class="fa fa-user-tie"></i> Coordinators</a>
+    <a href="organization.html"><i class="fa fa-user-tie"></i> Organization</a>
+    <a href="shelter.html"><i class="fa fa-building"></i> Shelters</a>
+    <a href="camp.html"><i class="fa fa-campground"></i> Camps</a>
+    <a href="inventory.html"><i class="fa fa-warehouse"></i> Inventory</a>
+    <a href="aid.html"><i class="fa fa-box"></i> Aid Distribution</a>
+    <a href="donations-show.html"><i class="fa fa-hand-holding-dollar"></i> Donations</a>
+    <a href="medical.html"><i class="fa fa-file-medical"></i> Medical Records</a>
+    <a href="incidents.html"><i class="fa fa-exclamation-triangle"></i> Incidents</a>
+    <a href="critical.html"><i class="fa fa-heart-pulse"></i> Critical Patients</a>
+    <a onclick="logout()"><i class="fa fa-right-from-bracket"></i> Logout</a>
+  </div>
+</aside> 
+
+<main class="content">
+  <div class="topbar">
+    <h3 id="pageTitle">Refugees</h3>
+    <div class="profile"><div class="avatar">A</div><span id="info">Admin</span></div>
+  </div>
+
+  <div class="action-bar">
+    <button class="btn btn-primary" onclick="showAddRefugee()"><i class="fa fa-plus"></i> Add Refugee</button>
+    <button class="btn btn-soft" onclick="showAssignShelter()"><i class="fa fa-building"></i> Assign to Shelter</button>
+  </div>
+
+  <div class="crud-section" id="crudSection">
+    <h3 id="crudTitle">Form</h3>
+    <div class="crud-form" id="crudForm"></div>
+  </div>
+
+  <div class="card" id="searchBox" style="margin-bottom:15px;">
+    <h3>Search Refugees</h3>
+    <div class="toolbar">
+      <input id="searchInput" placeholder="Search by ID or Name...">
+      <button class="btn btn-primary" onclick="handleSearch()">Search</button>
+      <button class="btn btn-soft" onclick="loadRefugees()">Clear</button>
+    </div>
+  </div>
+
+  <div style="color:#64748b;font-size:0.8rem;margin-bottom:0.5rem;">Records: <span id="count">0</span></div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr id="tableHead"></tr></thead>
+      <tbody id="tableBody"><tr><td class="empty-row">Loading...</td></tr></tbody>
+    </table>
+  </div>
+</main>
+</div>
+
+<script>
+const API = "http://localhost:3000";
+const token = localStorage.getItem("token");
+if (!token || localStorage.getItem("role") !== "admin") { alert("Access denied"); window.location.href = "login.html"; }
+document.getElementById("info").innerText = "Admin: " + (localStorage.getItem("username") || "");
+
+async function apiFetch(url, opt={}) {
+  const r = await fetch(url, {...opt, headers:{"Content-Type":"application/json","Authorization":"Bearer "+token,...(opt.headers||{})}});
+  return await r.json();
+}
+
+function showCrud(title, html) {
+  document.getElementById("crudTitle").innerText = title;
+  document.getElementById("crudForm").innerHTML = html;
+  const s = document.getElementById("crudSection"); s.classList.add("show"); s.scrollIntoView({behavior:"smooth"});
+}
+function hideCrud() { document.getElementById("crudSection").classList.remove("show"); }
+function setCount(n) { document.getElementById("count").innerText = n; }
+
+async function loadRefugees() {
+  hideCrud();
+  const data = await apiFetch(`${API}/api/refugees`);
+  document.getElementById("tableHead").innerHTML = `
+    <th>ID</th><th>Name</th><th>DOB</th><th>Gender</th><th>Nationality</th>
+    <th>Status</th><th>Vulnerability</th><th>Family</th><th>Camp</th><th>Shelter</th><th>Actions</th>
+  `;
+  const body = document.getElementById("tableBody");
+  setCount(Array.isArray(data) ? data.length : 0);
+  if (!Array.isArray(data) || !data.length) { body.innerHTML = `<tr><td colspan="11" class="empty-row">No refugees</td></tr>`; return; }
+  body.innerHTML = data.map(r => `<tr>
+    <td>${r.REFUGEE_ID}</td><td>${r.NAME??'-'}</td>
+    <td>${r.DOB?new Date(r.DOB).toLocaleDateString():'-'}</td>
+    <td>${r.GENDER==='M'?'Male':r.GENDER==='F'?'Female':r.GENDER??'-'}</td>
+    <td>${r.NATIONALITY??'-'}</td>
+    <td><span class="status ok">${r.STATUS??'ACTIVE'}</span></td>
+    <td>${r.VULNERABILITY??'None'}</td>
+    <td>${r.HAS_FAMILY==='Y'?'Yes':'No'}</td>
+    <td>${r.CAMP_NAME??'Unassigned'}</td>
+    <td>${r.SHELTER_ID??'-'}</td>
+    <td>
+      <button class="btn btn-primary" onclick="showEditRefugee(${r.REFUGEE_ID})">Edit</button>
+      <button class="btn btn-danger" onclick="deleteRefugee(${r.REFUGEE_ID})">Delete</button>
+    </td>
+  </tr>`).join('');
+}
+
+function showAddRefugee() {
+  showCrud("Add Refugee", `
+    <input id="cr_name" placeholder="Full Name" required>
+    <input id="cr_dob" type="date"><select id="cr_gender"><option value="">Gender</option><option value="M">Male</option><option value="F">Female</option></select>
+    <input id="cr_nat" placeholder="Nationality"><input id="cr_vuln" placeholder="Vulnerability (optional)">
+    <select id="cr_fam"><option value="N">No Family</option><option value="Y">Has Family</option></select>
+    <input id="cr_shelter" placeholder="Shelter ID" type="number">
+    <button class="btn btn-primary" onclick="submitAddRefugee()">Save</button>
+    <button class="btn btn-soft" onclick="hideCrud()">Cancel</button>
+  `);
+}
+
+function submitAddRefugee() {
+  const name=document.getElementById("cr_name").value, dob=document.getElementById("cr_dob").value,
+  gender=document.getElementById("cr_gender").value, nat=document.getElementById("cr_nat").value,
+  sid=document.getElementById("cr_shelter").value;
+  if (!name||!dob||!gender||!nat||!sid) return alert("All fields required");
+  apiFetch(`${API}/api/refugees`,{method:"POST",body:JSON.stringify({name,dob,gender,nationality:nat,
+    vulnerability:document.getElementById("cr_vuln").value||null,has_family:document.getElementById("cr_fam").value,shelter_id:sid})})
+  .then(d=>{alert(d.message||d.error);hideCrud();loadRefugees();});
+}
+
+// function showEditRefugee(id) {
+//   showCrud("Edit Refugee #"+id, `
+//     <input id="er_name" placeholder="Name (blank=skip)">
+//     <select id="er_status"><option value="">Status (skip)</option><option value="ACTIVE">ACTIVE</option><option value="DEPARTED">DEPARTED</option></select>
+//     <input id="er_vuln" placeholder="Vulnerability (blank=skip)">
+//     <button class="btn btn-primary" onclick="submitEditRefugee(${id})">Update</button>
+//     <button class="btn btn-soft" onclick="hideCrud()">Cancel</button>
+//   `);
+// }
+function showEditRefugee(id) {
+  showCrud("Edit Refugee #" + id, `
+    
+    <input id="er_name" placeholder="Name">
+
+    <input id="er_dob" type="date" placeholder="Date of Birth">
+
+    <select id="er_gender">
+      <option value="">Select Gender</option>
+      <option value="Male">Male</option>
+      <option value="Female">Female</option>
+    </select>
+
+    <input id="er_nationality" placeholder="Nationality">
+
+    <input id="er_shelter" placeholder="Shelter ID (Optional)">
+
+    <input id="er_vuln" placeholder="Vulnerability">
+
+    <select id="er_hasFamily">
+      <option value="">Has Family?</option>
+      <option value="Y">YES</option>
+      <option value="N">NO</option>
+    </select>
+
+    <select id="er_status">
+      <option value="">Select Status</option>
+      <option value="ACTIVE">ACTIVE</option>
+      <option value="DEPARTED">DEPARTED</option>
+    </select>
+
+    <button class="btn btn-primary" onclick="submitEditRefugee(${id})">
+      Update
+    </button>
+
+    <button class="btn btn-soft" onclick="hideCrud()">
+      Cancel
+    </button>
+
+  `);
+}
+
+function submitEditRefugee(id) {
+
+  const b = {};
+
+  const name = document.getElementById("er_name").value;
+  const dob = document.getElementById("er_dob").value;
+  const gender = document.getElementById("er_gender").value;
+  const nationality = document.getElementById("er_nationality").value;
+  const shelter = document.getElementById("er_shelter").value;
+  const vulnerability = document.getElementById("er_vuln").value;
+  const hasFamily = document.getElementById("er_hasFamily").value;
+  const status = document.getElementById("er_status").value;
+
+  if (name) b.name = name;
+
+  if (dob) b.dob = dob;
+
+  if (gender) b.gender = gender;
+
+  if (nationality) b.nationality = nationality;
+
+  if (shelter) b.shelter_id = shelter;
+
+  if (vulnerability) b.vulnerability = vulnerability;
+
+  if (hasFamily) b.has_family = hasFamily;
+
+  if (status) b.status = status;
+
+  console.log(b);
+
+  apiFetch(`${API}/api/refugees/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(b)
+  })
+  .then(d => {
+    alert(d.message || d.error);
+    hideCrud();
+    loadRefugees();
+  });
+}
+
+function deleteRefugee(id) {
+  if(!confirm(`Delete refugee ${id}?`))return;
+  apiFetch(`${API}/api/refugees/${id}`,{method:"DELETE"}).then(d=>{alert(d.message||d.error);loadRefugees();});
+}
+
+function showAssignShelter() {
+  showCrud("Assign Refugee to Shelter", `
+    <input id="as_ref" placeholder="Refugee ID" type="number">
+    <input id="as_shelter" placeholder="Shelter ID" type="number">
+    <button class="btn btn-primary" onclick="submitAssignShelter()">Assign</button>
+    <button class="btn btn-soft" onclick="hideCrud()">Cancel</button>
+  `);
+}
+
+function submitAssignShelter() {
+  const rid=document.getElementById("as_ref").value,sid=document.getElementById("as_shelter").value;
+  if(!rid||!sid)return alert("Both IDs required");
+  apiFetch(`${API}/api/refugees/${rid}/assign-shelter`,{method:"PUT",body:JSON.stringify({shelter_id:Number(sid)})})
+  .then(d=>{alert(d.message||d.error);hideCrud();loadRefugees();});
+}
+
+function handleSearch() {
+  const term=document.getElementById("searchInput").value.trim();
+  if(!term)return alert("Enter search term");
+  if(/^\d+$/.test(term)){
+    apiFetch(`${API}/api/refugees/${term}`).then(d=>{if(d.error)return alert(d.error);
+    document.getElementById("tableBody").innerHTML=`<tr>
+      <td>${d.REFUGEE_ID}</td><td>${d.NAME??'-'}</td><td>${d.DOB?new Date(d.DOB).toLocaleDateString():'-'}</td>
+      <td>${d.GENDER??'-'}</td><td>${d.NATIONALITY??'-'}</td><td>${d.STATUS??'-'}</td>
+      <td>${d.VULNERABILITY??'-'}</td><td>${d.HAS_FAMILY??'-'}</td><td>${d.CAMP_NAME??'-'}</td>
+      <td>${d.SHELTER_ID??'-'}</td><td>-</td></tr>`;setCount(1);});
+  } else {
+    apiFetch(`${API}/api/refugees`).then(data=>{
+      const f=Array.isArray(data)?data.filter(r=>r.NAME?.toLowerCase().includes(term.toLowerCase())):[];
+      document.getElementById("tableBody").innerHTML=f.map(r=>`<tr><td>${r.REFUGEE_ID}</td><td>${r.NAME}</td>
+      <td colspan="9">...</td></tr>`).join('')||`<tr><td colspan="11" class="empty-row">No results</td></tr>`;
+      setCount(f.length);
+    });
+  }
+}
+
+function logout(){localStorage.clear();window.location.href="login.html";}
+loadRefugees();
+</script>
+</body>
+</html>
